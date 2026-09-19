@@ -1,7 +1,7 @@
 ---
 id: PLAN-0006
 title: 画面だけでできるGit同期とWBSの差分削減
-status: doing
+status: done
 created: 2026-09-19
 related: PLAN-0002, PLAN-0003
 ---
