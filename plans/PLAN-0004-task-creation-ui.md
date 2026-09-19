@@ -84,7 +84,7 @@ related: PLAN-0001, PLAN-0003
 1. `createTask()` に `strict` オプションと、Requirement・先行Taskの実在確認を追加する。
 2. `requirements/*.md` を読む関数と `GET /api/requirements` を追加する。
 3. `POST /api/tasks` を追加する（入力不正は400、成功は201）。
-4. `index.html` に「新規Task」ボタンと作成ダイアログを追加する。
+4. `index.html` に「新規Task」ボタンと作成ダイアログを追加する。ボタンはボードの見出し行の右側、Task件数表示の左に置き、色は主要操作（`primary`）とする。ヘッダーの操作（WBS生成、ガント、Pull、Commit & Push、更新）は画面全体やリポジトリへの操作であり、ボードへの操作であるTask作成とは分ける。
 5. `app.js` にダイアログの開閉、Requirement選択肢の読み込み、送信、エラー表示、作成後のKanban再読込を追加する。
 6. テストを追加する（下記）。
 7. READMEにAPIと画面操作を追記する。
