@@ -1,7 +1,7 @@
 ---
 id: PLAN-0002
 title: チーム共有・共同運用対応
-status: approved
+status: doing
 created: 2026-09-19
 related: PLAN-0001
 ---

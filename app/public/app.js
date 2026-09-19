@@ -177,6 +177,8 @@ async function loadGit() {
   try {
     const git = await api('/api/git/status');
     if (!git.isRepository) return void (container.textContent = 'Git repositoryではありません');
+    document.querySelector('#pullButton').disabled = !git.upstream || git.changes.length > 0;
+    document.querySelector('#commitPushButton').disabled = !git.upstream || git.changes.length === 0;
     container.innerHTML = `<strong>${escapeHtml(git.branch)}</strong> · ${git.changes.length} changes` +
       (git.changes.length ? `<div class="git-files">${git.changes.map((item) => `${escapeHtml(item.status)} ${escapeHtml(item.path)}`).join('<br>')}</div>` : '<div>作業ツリーはクリーンです</div>');
   } catch (error) { container.textContent = error.message; }
@@ -191,6 +193,37 @@ async function loadMeta() {
 
 document.querySelector('#refreshButton').addEventListener('click', () => Promise.all([loadTasks(), loadGit()]));
 document.querySelector('#gitRefresh').addEventListener('click', loadGit);
+async function gitPreview() { return api('/api/git/preview'); }
+async function runGitOperation(button, busyText, action) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = busyText;
+  try { await action(); } finally { button.textContent = original; await loadGit(); }
+}
+document.querySelector('#pullButton').addEventListener('click', async (event) => {
+  try {
+    const preview = await gitPreview();
+    if (!preview.canPull) throw new Error(preview.changes.length ? '未コミット変更があります。先にCommit & Pushしてください' : 'upstreamが設定されていません');
+    if (!window.confirm(`${preview.upstream} から早送り更新のみでPullします。続行しますか？`)) return;
+    await runGitOperation(event.currentTarget, '取得中...', async () => {
+      const result = await api('/api/git/pull', { method: 'POST' });
+      await loadTasks(); toast(result.output || 'Pullが完了しました');
+    });
+  } catch (error) { toast(error.message); }
+});
+document.querySelector('#commitPushButton').addEventListener('click', async (event) => {
+  try {
+    const preview = await gitPreview();
+    if (!preview.canCommitPush) throw new Error(preview.changes.length ? 'Git競合またはupstream未設定です' : 'コミットする変更はありません');
+    const files = preview.changes.map((item) => `${item.status} ${item.path}`).join('\n');
+    const commitMessage = window.prompt(`以下の変更をCommit & Pushします。\n\n${files}\n\nコミットメッセージ:`, '変更を更新');
+    if (commitMessage === null) return;
+    await runGitOperation(event.currentTarget, 'コミット中...', async () => {
+      const result = await api('/api/git/commit-push', { method: 'POST', body: JSON.stringify({ message: commitMessage }) });
+      toast(result.pushed ? `${result.commit} を ${result.upstream} へ送信しました` : `${result.commit} をコミットしました。Pushに失敗: ${result.pushError}`);
+    });
+  } catch (error) { toast(error.message); }
+});
 document.querySelector('#wbsButton').addEventListener('click', async (event) => {
   event.currentTarget.disabled = true;
   try {

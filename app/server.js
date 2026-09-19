@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createTask, generateWbs, listTasks, readTask, updateTask } from './lib/markdown.js';
-import { getGitStatus } from './lib/git.js';
+import { commitAndPush, getGitPreview, getGitStatus, pullFastForward } from './lib/git.js';
 import { createAdapter } from './lib/adapters.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -74,6 +74,16 @@ async function handleApi(request, response, url) {
   }
   if (request.method === 'GET' && url.pathname === '/api/git/status') {
     return sendJson(response, 200, await getGitStatus(root));
+  }
+  if (request.method === 'GET' && url.pathname === '/api/git/preview') {
+    return sendJson(response, 200, await getGitPreview(root));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/git/pull') {
+    return sendJson(response, 200, await pullFastForward(root));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/git/commit-push') {
+    const { message } = await readJson(request);
+    return sendJson(response, 200, await commitAndPush(root, message));
   }
   if (request.method === 'GET' && url.pathname === '/api/meta') {
     return sendJson(response, 200, { adapter: adapter.name, fallback: fallback?.name || null, port });
