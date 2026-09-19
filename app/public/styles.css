@@ -37,6 +37,7 @@ button { cursor: pointer; }
 .section-heading h2, .git-heading h2 { margin: 0; font-size: 18px; }
 .section-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 .section-heading.compact { margin-bottom: 12px; }
+.heading-actions { display: flex; align-items: center; gap: 12px; }
 .task-count { color: var(--muted); font-size: 12px; }
 
 .board { height: calc(100% - 65px); display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding: 2px 2px 12px; }

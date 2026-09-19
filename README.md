@@ -70,6 +70,15 @@ app/          ローカルWebアプリ
 
 Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `requirement` です。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
 
+## Taskの作成
+
+Taskは次の2つの経路で作成できます。どちらも `tasks/EPF-nnnn.md` を新規作成します。
+
+- **画面**: ボード見出し右の「新規Task」からフォームで作成します。タイトル、担当者、Requirementは必須で、不正な入力は補完せずエラーを表示します。Requirementは `requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文が空の場合は、背景・目的・完了条件・関連の見出しを持つ雛形を使います。Planは指定できず、Front Matterにも書きません。
+- **AI Chat**: 「〜のタスクを作って」と依頼します。不足する項目は既定値で補います。
+
+APIは `POST /api/tasks`（作成。成功は201、入力不正は400）と `GET /api/requirements`（Requirement一覧）です。
+
 ## 設計上の境界
 
 - `app/lib/markdown.js`: Markdownの解析、検証、読み書き、WBS・ガント用データ生成

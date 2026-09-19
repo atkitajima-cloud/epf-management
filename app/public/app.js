@@ -127,6 +127,36 @@ taskForm.addEventListener('submit', async (event) => {
     document.querySelector('#saveStatus').textContent = error.message;
   } finally { button.disabled = false; }
 });
+const createDialog = document.querySelector('#createDialog');
+const createForm = document.querySelector('#createForm');
+createForm.elements.status.innerHTML = statuses.map((status) => `<option value="${status.id}">${status.label}</option>`).join('');
+
+document.querySelector('#newTaskButton').addEventListener('click', async () => {
+  try {
+    const { requirements } = await api('/api/requirements');
+    createForm.elements.requirement.innerHTML = requirements
+      .map((item) => `<option value="${item.id}">${escapeHtml(item.id)} ${escapeHtml(item.title)}</option>`).join('');
+    createForm.reset();
+    document.querySelector('#createStatus').textContent = '';
+    createDialog.showModal();
+  } catch (error) { toast(error.message); }
+});
+createForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(createForm));
+  const button = createForm.querySelector('[type="submit"]');
+  button.disabled = true;
+  try {
+    const { task } = await api('/api/tasks', { method: 'POST', body: JSON.stringify(payload) });
+    createDialog.close();
+    await Promise.all([loadTasks(), loadGit()]);
+    toast(`${task.id} を作成しました`);
+  } catch (error) {
+    document.querySelector('#createStatus').textContent = error.message;
+  } finally { button.disabled = false; }
+});
+document.querySelector('#closeCreateDialog').addEventListener('click', () => createDialog.close());
+document.querySelector('#cancelCreateDialog').addEventListener('click', () => createDialog.close());
 document.querySelector('#closeDialog').addEventListener('click', () => dialog.close());
 document.querySelector('#cancelDialog').addEventListener('click', () => dialog.close());
 

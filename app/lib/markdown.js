@@ -176,18 +176,66 @@ export async function nextTaskId(root) {
   return `EPF-${String(max + 1).padStart(4, '0')}`;
 }
 
-export async function createTask(root, input) {
-  const id = await nextTaskId(root);
+const BODY_TEMPLATE = `# 背景
+
+（未記入）
+
+# 目的
+
+（未記入）
+
+# 完了条件
+
+- [ ] 
+- [ ] 
+- [ ] 
+
+# 関連
+
+（未記入）`;
+
+export async function listRequirements(root) {
+  const directory = path.join(root, 'requirements');
+  const files = (await fs.readdir(directory).catch(() => [])).filter((name) => /^REQ-\d{4}\.md$/.test(name)).sort();
+  const results = [];
+  for (const file of files) {
+    let title = '';
+    try { title = parseMarkdown(await fs.readFile(path.join(directory, file), 'utf8')).data.title || ''; } catch { /* タイトルなしで一覧に出す */ }
+    results.push({ id: file.replace('.md', ''), title });
+  }
+  return results;
+}
+
+// strict=trueは画面からの作成用で、不正な入力を補完せずエラーにする。falseはAIチャット用で既定値で補う。
+export async function createTask(root, input, { strict = false } = {}) {
+  const text = (value) => String(value ?? '').trim();
+  const choose = (value, allowed, defaultValue) => (strict ? (value || defaultValue) : (allowed.includes(value) ? value : defaultValue));
+  const requirement = strict ? text(input.requirement) : (/^REQ-\d{4}$/.test(input.requirement || '') ? input.requirement : 'REQ-0001');
   const data = {
-    id, title: String(input.title || '新しいタスク').trim(), status: STATUSES.includes(input.status) ? input.status : 'backlog',
-    owner: String(input.owner || 'unassigned').trim(), priority: PRIORITIES.includes(input.priority) ? input.priority : 'medium',
-    start: String(input.start || '').trim(), due: String(input.due || '').trim(), depends_on: String(input.depends_on || '').trim(),
-    requirement: /^REQ-\d{4}$/.test(input.requirement || '') ? input.requirement : 'REQ-0001', plan: String(input.plan || 'PLAN-0001').trim()
+    title: text(input.title) || (strict ? '' : '新しいタスク'),
+    status: choose(input.status, STATUSES, 'backlog'),
+    owner: text(input.owner) || (strict ? '' : 'unassigned'),
+    priority: choose(input.priority, PRIORITIES, 'medium'),
+    start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement
   };
-  const body = String(input.body || `# 背景\n\nAI Chatから作成されたタスク。\n\n# 目的\n\n${data.title}を実現する。\n\n# 完了条件\n\n- [ ] 実装方針を確認する\n- [ ] 変更を実装する\n- [ ] 動作確認する\n\n# 関連\n\n- Requirement: ${data.requirement}\n- Plan: ${data.plan}`);
-  validateTask(data);
-  await fs.writeFile(taskPath(root, id), serializeMarkdown(data, body), { encoding: 'utf8', flag: 'wx' });
-  return { ...data, body };
+  validateTask({ id: 'EPF-0000', ...data });
+  if (strict) {
+    const requirements = await listRequirements(root);
+    if (!requirements.some((item) => item.id === requirement)) throw new Error(`${requirement}は存在しません`);
+    const existing = new Set((await listTasks(root)).map((task) => task.id));
+    for (const id of parseDependencies(data.depends_on)) if (!existing.has(id)) throw new Error(`先行Task ${id}は存在しません`);
+  }
+  const body = text(input.body) || BODY_TEMPLATE;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const id = await nextTaskId(root);
+    try {
+      await fs.writeFile(taskPath(root, id), serializeMarkdown({ id, ...data }, body), { encoding: 'utf8', flag: 'wx' });
+      return { id, ...data, body };
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+    }
+  }
+  throw new Error('Task IDの採番に失敗しました。再度お試しください');
 }
 
 export async function generateWbs(root) {
