@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, updateTask } from './lib/markdown.js';
-import { commitAndPush, getGitPreview, getGitStatus, pullFastForward } from './lib/git.js';
+import { commitAndPush, getGitPreview, getGitStatus, pullLatest } from './lib/git.js';
 import { createAdapter } from './lib/adapters.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -42,6 +42,9 @@ async function runAi(message) {
     return { result: await fallback.run(message), adapter: fallback.name, fallbackUsed: true, warning: error.message };
   }
 }
+
+// 積み直しの途中でviews/wbs.mdだけが競合した場合に、Taskから再生成するために渡す。
+const regenerateWbs = () => generateWbs(root);
 
 async function handleApi(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/tasks') {
@@ -85,17 +88,17 @@ async function handleApi(request, response, url) {
     return sendJson(response, 200, buildGanttData(await listTasks(root)));
   }
   if (request.method === 'GET' && url.pathname === '/api/git/status') {
-    return sendJson(response, 200, await getGitStatus(root));
+    return sendJson(response, 200, await getGitStatus(root, { fetch: url.searchParams.get('fetch') === '1' }));
   }
   if (request.method === 'GET' && url.pathname === '/api/git/preview') {
     return sendJson(response, 200, await getGitPreview(root));
   }
   if (request.method === 'POST' && url.pathname === '/api/git/pull') {
-    return sendJson(response, 200, await pullFastForward(root));
+    return sendJson(response, 200, await pullLatest(root, { regenerateWbs }));
   }
   if (request.method === 'POST' && url.pathname === '/api/git/commit-push') {
     const { message } = await readJson(request);
-    return sendJson(response, 200, await commitAndPush(root, message));
+    return sendJson(response, 200, await commitAndPush(root, message, { regenerateWbs }));
   }
   if (request.method === 'GET' && url.pathname === '/api/meta') {
     return sendJson(response, 200, { adapter: adapter.name, fallback: fallback?.name || null, port });

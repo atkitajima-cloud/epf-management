@@ -173,3 +173,15 @@ test('マスタがない場合は、作成と担当者の変更を理由付き�
   assert.equal((await updateTask(root, 'EPF-0001', { status: 'doing' })).status, 'doing');
   assert.equal((await listTasks(root)).length, 1);
 });
+
+test('WBSは生成日時を含まず、Taskと基準日が同じなら再生成しても内容が変わらない', async (context) => {
+  const root = await makeRoot(context);
+  await fs.mkdir(path.join(root, 'views'));
+  await generateWbs(root, '2026-09-19');
+  const first = await fs.readFile(path.join(root, 'views', 'wbs.md'), 'utf8');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await generateWbs(root, '2026-09-19');
+  assert.equal(await fs.readFile(path.join(root, 'views', 'wbs.md'), 'utf8'), first);
+  assert.doesNotMatch(first, /生成日時|20\d\d-\d\d-\d\dT/);
+  assert.match(first, /EPF-0001/);
+});

@@ -219,14 +219,18 @@ chatForm.addEventListener('submit', async (event) => {
   } finally { setBusy(button, false); }
 });
 
-async function loadGit() {
+// fetch: trueのときだけ共有側の最新を取得する（通信するため、ページ表示時などには行わない）。
+async function loadGit({ fetch = false } = {}) {
   const container = document.querySelector('#gitStatus');
   try {
-    const git = await api('/api/git/status');
+    const git = await api(`/api/git/status${fetch ? '?fetch=1' : ''}`);
     if (!git.isRepository) return void (container.textContent = 'Git repositoryではありません');
     document.querySelector('#pullButton').disabled = !git.upstream || git.changes.length > 0;
-    document.querySelector('#commitPushButton').disabled = !git.upstream || git.changes.length === 0;
+    document.querySelector('#commitPushButton').disabled = !git.upstream || (git.changes.length === 0 && git.ahead === 0);
+    const sync = [git.ahead ? `共有していないcommit ${git.ahead}件` : '', git.behind ? `共有側の更新 ${git.behind}件` : ''].filter(Boolean);
     container.innerHTML = `<strong>${escapeHtml(git.branch)}</strong> · ${git.changes.length} changes` +
+      (sync.length ? `<div>${sync.join(' · ')}</div>` : '') +
+      (git.fetchError ? `<div class="git-error">共有側を確認できませんでした: ${escapeHtml(git.fetchError)}</div>` : '') +
       (git.changes.length ? `<div class="git-files">${git.changes.map((item) => `${escapeHtml(item.status)} ${escapeHtml(item.path)}`).join('<br>')}</div>` : '<div>作業ツリーはクリーンです</div>');
   } catch (error) { container.textContent = error.message; }
 }
@@ -238,7 +242,7 @@ async function loadMeta() {
   } catch { document.querySelector('#adapterBadge').textContent = 'AI: unavailable'; }
 }
 
-document.querySelector('#gitRefresh').addEventListener('click', loadGit);
+document.querySelector('#gitRefresh').addEventListener('click', () => loadGit({ fetch: true }));
 async function gitPreview() { return api('/api/git/preview'); }
 async function runGitOperation(button, busyText, action) {
   const original = button.textContent;
@@ -246,15 +250,29 @@ async function runGitOperation(button, busyText, action) {
   button.textContent = busyText;
   try { await action(); } finally { button.textContent = original; button.removeAttribute('aria-busy'); await loadGit(); }
 }
+// 自動では取り込めなかった場合（他の人と同じ場所を変更した場合）の案内。自分の変更は元の状態に戻してある。
+function alertConflict(result) {
+  const files = result.files || [];
+  const hint = files.some((file) => /^tasks\/EPF-\d{4}\.md$/.test(file))
+    ? '\n\n同じ番号のTaskを、別々に作成した場合にも起こります。Taskを作成する前にPullすると避けられます。' : '';
+  window.alert(`他の人の変更と同じ場所を変更していたため、自動では取り込めませんでした。\n自分の変更は失われていません（操作前の状態に戻しました）。\n\n対象ファイル:\n${files.join('\n')}${hint}\n\n詳しい人に相談してください。`);
+}
+
 document.querySelector('#pullButton').addEventListener('click', async (event) => {
   const button = event.currentTarget;
   try {
     const preview = await gitPreview();
-    if (!preview.canPull) throw new Error(preview.changes.length ? '未コミット変更があります。先にCommit & Pushしてください' : 'upstreamが設定されていません');
-    if (!window.confirm(`${preview.upstream} から早送り更新のみでPullします。続行しますか？`)) return;
+    if (!preview.canPull) throw new Error(preview.conflicts ? 'Git競合を解消してからPullしてください' : preview.changes.length ? '未コミット変更があります。先にCommit & Pushしてください' : 'upstreamが設定されていません');
+    const pending = preview.ahead ? `共有していないcommitが${preview.ahead}件あります。他の人の更新を取り込んだ上に、それらを置き直します。` : '';
+    if (!window.confirm(`${preview.upstream} から他の人の更新を取り込みます。${pending}続行しますか？`)) return;
     await runGitOperation(button, '取得中...', async () => {
       const result = await api('/api/git/pull', { method: 'POST' });
-      await loadTasks(); toast(result.output || 'Pullが完了しました');
+      if (result.outcome === 'conflict') return alertConflict(result);
+      if (result.outcome === 'fetch-failed') return toast(`共有側を確認できませんでした: ${result.error}`);
+      if (result.outcome === 'error') return toast(result.error);
+      if (result.outcome === 'up-to-date') return toast('他の人の更新はありませんでした');
+      await loadTasks();
+      toast('他の人の更新を取り込みました');
     });
   } catch (error) { toast(error.message); }
 });
@@ -262,13 +280,22 @@ document.querySelector('#commitPushButton').addEventListener('click', async (eve
   const button = event.currentTarget;
   try {
     const preview = await gitPreview();
-    if (!preview.canCommitPush) throw new Error(preview.changes.length ? 'Git競合またはupstream未設定です' : 'コミットする変更はありません');
-    const files = preview.changes.map((item) => `${item.status} ${item.path}`).join('\n');
-    const commitMessage = window.prompt(`以下の変更をCommit & Pushします。\n\n${files}\n\nコミットメッセージ:`, '変更を更新');
-    if (commitMessage === null) return;
-    await runGitOperation(button, 'コミット中...', async () => {
+    if (!preview.canCommitPush) throw new Error(preview.conflicts ? 'Git競合を解消してからCommit & Pushしてください' : !preview.upstream ? 'upstreamが設定されていません' : '送信する変更はありません');
+    let commitMessage = '';
+    if (preview.changes.length) {
+      const files = preview.changes.map((item) => `${item.status} ${item.path}`).join('\n');
+      commitMessage = window.prompt(`以下の変更をCommit & Pushします。\n他の人の更新があれば、取り込んでから送信します。\n\n${files}\n\nコミットメッセージ:`, '変更を更新');
+      if (commitMessage === null) return;
+    } else if (!window.confirm(`共有していないcommitが${preview.ahead}件あります。他の人の更新があれば取り込んでから、送信します。続行しますか？`)) return;
+    await runGitOperation(button, '送信中...', async () => {
       const result = await api('/api/git/commit-push', { method: 'POST', body: JSON.stringify({ message: commitMessage }) });
-      toast(result.pushed ? `${result.commit} を ${result.upstream} へ送信しました` : `${result.commit} をコミットしました。Pushに失敗: ${result.pushError}`);
+      const saved = result.committed ? `${result.commit} をコミットしました。` : '';
+      if (result.outcome === 'conflict') return alertConflict(result);
+      if (result.outcome === 'fetch-failed') return toast(`${saved}共有側を確認できなかったため、送信していません: ${result.error}`);
+      if (result.outcome === 'error') return toast(`${saved}${result.error}`);
+      if (result.outcome === 'push-failed') return toast(`${saved}送信に失敗しました。もう一度Commit & Pushを押してください: ${result.pushError}`);
+      if (result.integrated) await loadTasks();
+      toast(`${result.integrated ? '他の人の更新を取り込んで、' : ''}${result.commit} を ${result.upstream} へ送信しました`);
     });
   } catch (error) { toast(error.message); }
 });

@@ -270,15 +270,15 @@ export async function createTask(root, input, { strict = false } = {}) {
   throw new Error('Task IDの採番に失敗しました。再度お試しください');
 }
 
-export async function generateWbs(root) {
+// today（YYYY-MM-DD）は日程判定の基準日。テストで固定するために指定できる。
+export async function generateWbs(root, today) {
   const tasks = (await listTasks(root)).filter((task) => !task.invalid);
-  const ganttById = new Map(buildGanttData(tasks).tasks.map((task) => [task.id, task]));
+  const ganttById = new Map(buildGanttData(tasks, today).tasks.map((task) => [task.id, task]));
   const order = new Map(STATUSES.map((status, index) => [status, index]));
   tasks.sort((a, b) => order.get(a.status) - order.get(b.status) || a.id.localeCompare(b.id));
   const escape = (value) => String(value || '').replaceAll('|', '\\|').replaceAll('\n', ' ');
   const lines = [
     '# WBS', '', '> このファイルは `tasks/*.md` から生成される派生Viewです。直接編集しないでください。', '',
-    `生成日時: ${new Date().toISOString()}`, '',
     '| ID | Task | Status | Owner | Priority | Start | Due | Progress | Schedule | Dependencies | Requirement |',
     '|---|---|---|---|---|---|---|---|---|---|---|',
     ...tasks.map((task) => {
