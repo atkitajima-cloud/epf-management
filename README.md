@@ -95,8 +95,6 @@ $env:AI_ADAPTER='codex'; npm start
 ```text
 context/       背景・範囲・制約・用語
 requirements/ 要求（REQ-xxxx）
-decisions/    意思決定（ADR-xxxx）
-meetings/     会議記録
 tasks/        Taskの正本（EPF-xxxx、1タスク1ファイル）
 masters/      担当者マスタ（owners.md）
 plans/        このアプリ自体の大きな変更のPlan（管理対象のTaskとは無関係）
@@ -162,7 +160,7 @@ npm test
 
 ## サンプルデータ
 
-Requirement 2件、Task 8件、Decision 2件、Meeting Note 1件、Plan 1件を同梱しています。起動直後から全状態のKanbanとAI Chatの用途を確認できます。
+RequirementとTaskのサンプルを同梱しています。起動直後から全状態のKanbanとAI Chatの用途を確認できます。
 
 ## 今後の候補
 
