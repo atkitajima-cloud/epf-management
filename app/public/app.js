@@ -201,24 +201,26 @@ async function runGitOperation(button, busyText, action) {
   try { await action(); } finally { button.textContent = original; await loadGit(); }
 }
 document.querySelector('#pullButton').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
   try {
     const preview = await gitPreview();
     if (!preview.canPull) throw new Error(preview.changes.length ? '未コミット変更があります。先にCommit & Pushしてください' : 'upstreamが設定されていません');
     if (!window.confirm(`${preview.upstream} から早送り更新のみでPullします。続行しますか？`)) return;
-    await runGitOperation(event.currentTarget, '取得中...', async () => {
+    await runGitOperation(button, '取得中...', async () => {
       const result = await api('/api/git/pull', { method: 'POST' });
       await loadTasks(); toast(result.output || 'Pullが完了しました');
     });
   } catch (error) { toast(error.message); }
 });
 document.querySelector('#commitPushButton').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
   try {
     const preview = await gitPreview();
     if (!preview.canCommitPush) throw new Error(preview.changes.length ? 'Git競合またはupstream未設定です' : 'コミットする変更はありません');
     const files = preview.changes.map((item) => `${item.status} ${item.path}`).join('\n');
     const commitMessage = window.prompt(`以下の変更をCommit & Pushします。\n\n${files}\n\nコミットメッセージ:`, '変更を更新');
     if (commitMessage === null) return;
-    await runGitOperation(event.currentTarget, 'コミット中...', async () => {
+    await runGitOperation(button, 'コミット中...', async () => {
       const result = await api('/api/git/commit-push', { method: 'POST', body: JSON.stringify({ message: commitMessage }) });
       toast(result.pushed ? `${result.commit} を ${result.upstream} へ送信しました` : `${result.commit} をコミットしました。Pushに失敗: ${result.pushError}`);
     });
