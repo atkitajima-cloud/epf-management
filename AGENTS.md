@@ -1,33 +1,33 @@
-# Repository Instructions
+# リポジトリの作業規則
 
-## Source of Truth
+## 正本
 
 - Markdown / GitがSingle Source of Truthである。
 - DBを導入しない。UI固有の永続データを作らない。
 - `tasks/*.md` は1タスク1ファイルとし、必須Front Matterを維持する。
 - UI都合でMarkdownのデータ構造や意味を壊さない。
 
-## Information Model
+## 情報のつながり
 
 - Context → Requirement → Task → Planの関係を維持する。
 - Taskは対応するRequirementを明記する。
 - WBSは `tasks/*.md` から生成する派生Viewであり、正本として編集しない。
 - 事実と推測・提案を明確に分ける。
 
-## AI Safety
+## AIの安全性
 
 - AIは既存RequirementやDecisionを勝手に変更しない。
 - Task追加のような明示的な依頼以外は、原則として変更案を提示して承認を待つ。
 - Codex CLIにはread-onlyで分析させ、書き込みはアプリ側で検証して行う。
 
-## Change Management
+## 変更の管理
 
 - 大きな変更の前に `plans/` のPlanを作成または更新する。
 - Git履歴とユーザーの未コミット変更を尊重する。
 - commit / pushを自動実行しない。
 - 変更後はMarkdown I/O、API、主要UIフローを検証する。
 
-## Plan-Driven Development
+## 計画に基づく開発
 
 - 小さな文言修正を除く機能追加、データ構造変更、外部連携、運用変更の前には、必ず `plans/` にPlanを作成または更新する。
 - Planには目的、対象範囲、非対象、設計判断、実装ステップ、検証、リスク、未決事項を記載する。
@@ -36,7 +36,7 @@
 - Planで提案した機能は、実装済みであるかのようにUI、README、回答で扱わない。
 - 専門用語、製品名、ファイル名、コマンド名は一般的な表記を使ってよい。説明文と見出しは平易な日本語で書き、不要な英語表現は避ける。
 
-## Turn Commit Discipline
+## 作業ターンごとの記録
 
 - 変更を伴う作業ターンは、完了前にそのターンで意図した変更を必ずGitコミットする。変更がない回答だけはコミットしない。
 - コミット前に対象ファイル、差分、テストまたは確認結果を確認し、無関係な変更を混在させない。
