@@ -1,9 +1,19 @@
+// hintは列の見出しの下に常に表示する短い説明、descriptionはマウスを重ねたときに表示する定義。README.mdの表と合わせる。
 const statuses = [
-  { id: 'backlog', label: 'Backlog', color: '#8b94a7' },
-  { id: 'ready', label: 'Ready', color: '#4385d0' },
-  { id: 'doing', label: 'Doing', color: '#d18a2d' },
-  { id: 'review', label: 'Review', color: '#8b59c5' },
-  { id: 'done', label: 'Done', color: '#3d9871' }
+  {
+    id: 'backlog', label: 'Backlog', color: '#8b94a7', hint: '確認前の候補',
+    description: 'まだ確認していない候補。AIが要求から作ったTaskの下書きもここに入る。完了条件・担当者・先行Taskが未確認で、着手の順番も決まっていない。'
+  },
+  {
+    id: 'ready', label: 'Ready', color: '#4385d0', hint: '着手できる（AIに渡してよい）',
+    description: '人が確認済みで、いつでも着手できる状態。完了条件が書かれ、担当者が決まり、先行Taskが終わっているか待つ必要がない。AIに着手を任せてよいのはこの状態から。'
+  },
+  { id: 'doing', label: 'Doing', color: '#d18a2d', hint: '作業中', description: '着手して、作業している。' },
+  {
+    id: 'review', label: 'Review', color: '#8b59c5', hint: '確認・レビュー待ち',
+    description: '作業は終わり、完了条件を満たしているかの確認（レビュー・検証）を待っている。'
+  },
+  { id: 'done', label: 'Done', color: '#3d9871', hint: '完了条件を満たした', description: '完了条件をすべて満たし、確認が済んだ。' }
 ];
 
 const state = { tasks: [], draggingId: null };
@@ -39,11 +49,12 @@ function renderBoard() {
   board.innerHTML = statuses.map((status) => {
     const tasks = state.tasks.filter((task) => task.status === status.id && !task.invalid);
     return `
-      <section class="column" data-status="${status.id}" style="--status-color:${status.color}">
+      <section class="column" data-status="${status.id}" style="--status-color:${status.color}" title="${escapeHtml(status.description)}">
         <header class="column-head">
           <span class="column-title"><span class="status-dot"></span>${status.label}</span>
           <span class="column-count">${tasks.length}</span>
         </header>
+        <p class="column-desc">${escapeHtml(status.hint)}</p>
         <div class="card-list">
           ${tasks.map(renderCard).join('')}
         </div>
