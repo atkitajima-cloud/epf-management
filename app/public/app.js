@@ -238,7 +238,6 @@ async function loadMeta() {
   } catch { document.querySelector('#adapterBadge').textContent = 'AI: unavailable'; }
 }
 
-document.querySelector('#refreshButton').addEventListener('click', () => Promise.all([loadTasks(), loadGit()]));
 document.querySelector('#gitRefresh').addEventListener('click', loadGit);
 async function gitPreview() { return api('/api/git/preview'); }
 async function runGitOperation(button, busyText, action) {
