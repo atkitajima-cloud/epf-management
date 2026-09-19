@@ -1,7 +1,7 @@
 ---
 id: PLAN-0004
 title: 画面からのTask作成
-status: draft
+status: done
 created: 2026-09-19
 related: PLAN-0001, PLAN-0003
 ---

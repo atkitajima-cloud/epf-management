@@ -1,7 +1,7 @@
 ---
 id: PLAN-0005
 title: 担当者マスタと選択入力
-status: draft
+status: done
 created: 2026-09-19
 related: PLAN-0004
 ---
