@@ -54,7 +54,6 @@ Git remote (Markdownの共有履歴)
 - 任意の変更後に使える明示承認付きCommit & Push
 - Task ID採番の共同運用対応
 - AI Adapterのチーム利用上の境界と診断表示
-- CIでのMarkdown検証
 
 > 実装状態: この文書に記載する `Commit & Push` はレビュー対象の計画であり、現行UIには未実装である。承認前にGit操作APIやボタンを追加しない。
 ## 実装しない
@@ -130,11 +129,10 @@ Git remote (Markdownの共有履歴)
 - AI提案の内容と実際に適用した操作を画面上で区別する。
 - チーム内の会話やMarkdownを外部へ送る可否は、各メンバーのCodex利用ポリシーに従う。リポジトリ側で認証情報やプロンプトログを収集しない。
 
-## 7. Markdown品質とCI
+## 7. マークダウン品質の確認
 
-- `npm test` に加え、全Taskの必須Front Matter、ID重複、status / priority値、Requirement参照、UTF-8を検証するコマンドを追加する。
-- GitHub Actions等のCIを採用するかはGitホスティング基盤に合わせて決定する。採用時も検証のみとし、Markdownを自動変更しない。
-- WBSをCIで検証する場合は、生成差分を失敗として報告し、CIがcommitしない運用にする。
+- `npm test` に加え、全Taskの必須Front Matter、ID重複、status / priority値、Requirement参照、UTF-8を検証するローカルコマンドを追加する。
+- Markdownを自動変更する検証処理は作らない。
 
 # 実装ステップ
 
@@ -148,7 +146,7 @@ Git remote (Markdownの共有履歴)
 8. Git状態パネルに変更一覧・commit messageを確認できる `Commit & Push` 操作を追加し、明示承認後のステージ、commit、通常push、失敗時の案内を実装する。
 9. Adapter診断とMockフォールバック表示を改善し、各自のローカルCodex設定を尊重する。
 10. チーム導入ガイド、`.env.example`、Git運用ガイド、競合解決手順を追加する。
-11. Markdown検証コマンドと必要に応じたCIを追加する。
+11. ローカルで実行するMarkdown検証コマンドを追加する。
 12. 2名以上・別cloneでの作成、同一Task編集、Pull後の更新、Codex未設定、競合解消、明示承認付きcommit / pushの受入テストを行う。
 
 # 受入テスト
@@ -170,7 +168,7 @@ Git remote (Markdownの共有履歴)
 | リスク | 軽減策 |
 |---|---|
 | 同一Markdownの同時編集で内容を失う | revisionによる409、原子的書き込み、再読込と手動マージ導線 |
-| 同時Task作成でIDが衝突する | 採番方式をADRで確定、CI検証、push前の再採番手順 |
+| 同時Task作成でIDが衝突する | 採番方式をADRで確定、ローカル検証、push前の再採番手順 |
 | 各PCのCodex環境差 | Adapter診断、`CODEX_CLI_PATH`、Mockフォールバック、導入ガイド |
 | LAN公開で認証なしアクセスが発生する | localhost bindを既定として維持。公開は別フェーズで認証から設計 |
 | WBSがTaskより古くなる | 生成元情報、鮮度表示、commit前の再生成チェック |
@@ -185,7 +183,7 @@ Git remote (Markdownの共有履歴)
 2. Gitホスティング基盤と、`main` へ直接pushする利用者・タイミングをどう決めるか。
 3. Task ID採番は案A（`tasks/sequence.md`）でよいか。ID形式を維持するか。
 4. 想定チーム人数と、同一Taskを同時に編集する頻度。
-5. CIを導入できる基盤と、必要な必須チェック。
+5. ローカルで実行するMarkdown検証の範囲をどうするか。
 6. Codex利用を任意とするか、チーム共通の利用ガイドを設けるか。
 7. 任意の変更後に使える明示承認付き `Commit & Push` を採用してよいか。確認粒度とcommit message形式をどうするか。
 
