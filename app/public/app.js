@@ -103,7 +103,7 @@ async function openTask(id) {
   try {
     const { task } = await api(`/api/tasks/${id}`);
     document.querySelector('#dialogTaskId').textContent = task.id;
-    for (const field of ['title', 'status', 'owner', 'priority', 'due', 'requirement', 'body']) {
+    for (const field of ['title', 'status', 'owner', 'priority', 'start', 'due', 'depends_on', 'requirement', 'body']) {
       taskForm.elements[field].value = task[field] || '';
     }
     document.querySelector('#saveStatus').textContent = '';
@@ -245,4 +245,7 @@ function toast(message) {
   toastTimer = setTimeout(() => element.classList.remove('show'), 2600);
 }
 
-Promise.all([loadTasks(), loadGit(), loadMeta()]).catch((error) => toast(error.message));
+const taskFromGantt = new URLSearchParams(window.location.search).get('task');
+Promise.all([loadTasks(), loadGit(), loadMeta()]).then(() => {
+  if (/^EPF-\d{4}$/.test(taskFromGantt || '')) openTask(taskFromGantt);
+}).catch((error) => toast(error.message));

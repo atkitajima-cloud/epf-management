@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ガント | EPF Management</title>
+  <link rel="stylesheet" href="/gantt.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><div class="eyebrow">LOCAL PROJECT WORKSPACE</div><h1>EPF Management</h1></div>
+    <nav class="topbar-actions" aria-label="画面操作">
+      <a class="button secondary" href="/">Kanbanへ戻る</a>
+      <button id="todayButton" class="button secondary">今日</button>
+      <button id="refreshButton" class="button primary">更新</button>
+    </nav>
+  </header>
+  <main class="page">
+    <section class="heading">
+      <div><h2>プロジェクト進捗</h2><p>Task Markdownから生成した日程Viewです。日程の編集はKanbanのTask詳細から行います。</p></div>
+      <div id="generatedAt" class="generated-at"></div>
+    </section>
+    <section id="summary" class="summary" aria-label="進捗集計"></section>
+    <section class="controls" aria-label="絞り込み">
+      <label>担当者<select id="ownerFilter"><option value="">すべて</option></select></label>
+      <label>状態<select id="statusFilter"><option value="">すべて</option></select></label>
+      <label>Requirement<select id="requirementFilter"><option value="">すべて</option></select></label>
+      <label>日程判定<select id="scheduleFilter"><option value="">すべて</option></select></label>
+      <div class="scale"><button data-scale="week" class="active">週</button><button data-scale="day">日</button></div>
+      <div class="legend"><span class="on_track">予定どおり</span><span class="at_risk">要注意</span><span class="overdue">期限超過</span><span class="done">完了</span><span class="unscheduled">日程未設定</span></div>
+    </section>
+    <section class="gantt-shell" aria-label="ガントチャート">
+      <div id="emptyState" class="empty-state" hidden>表示対象のTaskがありません。</div>
+      <div id="gantt" class="gantt" tabindex="0"></div>
+    </section>
+    <section id="warnings" class="warnings" hidden><h3>日程と依存関係の確認</h3><ul></ul></section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/gantt.js"></script>
+</body>
+</html>

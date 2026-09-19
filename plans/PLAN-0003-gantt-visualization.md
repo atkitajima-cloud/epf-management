@@ -1,7 +1,7 @@
 ---
 id: PLAN-0003
 title: WBSガントチャートと進捗遅延の可視化
-status: review
+status: done
 created: 2026-09-19
 related: PLAN-0001, PLAN-0002
 ---

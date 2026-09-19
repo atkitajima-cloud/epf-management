@@ -51,7 +51,8 @@ $env:AI_ADAPTER='codex'; npm start
 - AI Chat: 「証票一覧に取引先名検索を追加するタスクを作って」のように依頼すると、新しいTask Markdownが作成され即時表示されます。
 - 分析: タスク分割、優先順位、Requirementの抜け漏れは提案だけを表示し、既存データを自動変更しません。
 - WBS: ヘッダーのボタン、またはChatの「現在のタスクからWBSを作って」で `views/wbs.md` を再生成します。
-- Git: 現在のブランチと変更ファイルを右下に表示します。commit / pushは行いません。
+- ガント: ヘッダーの「ガント」または `http://localhost:4173/gantt.html` から開きます。開始日・期限・進捗・依存関係・日程判定を確認し、日程の編集はTask詳細で行います。
+- Git: 現在のブランチと変更ファイルを右下に表示します。ヘッダーからPull、または確認後のCommit & Pushを実行できます。
 
 ## データ構造
 
@@ -67,11 +68,11 @@ templates/    Markdownテンプレート
 app/          ローカルWebアプリ
 ```
 
-Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `requirement` です。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。
+Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `requirement` です。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
 
 ## 設計上の境界
 
-- `app/lib/markdown.js`: Markdownの解析、検証、読み書き、WBS生成
+- `app/lib/markdown.js`: Markdownの解析、検証、読み書き、WBS・ガント用データ生成
 - `app/lib/adapters.js`: `CodexAdapter` / `MockCodexAdapter`
 - `app/lib/git.js`: read-onlyなGit状態取得
 - `app/server.js`: HTTP APIと静的ファイル配信
@@ -93,4 +94,4 @@ Requirement 2件、Task 8件、Decision 2件、Meeting Note 1件、Plan 1件を�
 
 ## 今後の候補
 
-Workload、Timeline / Gantt、Requirement Traceability、PR / Redmine連携、会議メモ解析、Risk、依存関係、Milestone、Multi Project、Teams通知はPoC後の利用結果を見て追加します。
+Workload、営業日計算、クリティカルパス、Requirement Traceability、PR / Redmine連携、会議メモ解析、Risk、Milestone、Multi Project、Teams通知はPoC後の利用結果を見て追加します。

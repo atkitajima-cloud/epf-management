@@ -12,6 +12,7 @@
 - Context → Requirement → Task → Planの関係を維持する。
 - Taskは対応するRequirementを明記する。
 - WBSは `tasks/*.md` から生成する派生Viewであり、正本として編集しない。
+- ガントチャートも `tasks/*.md` から生成する派生Viewであり、表示用データを正本として保存しない。
 - 事実と推測・提案を明確に分ける。
 
 ## AIの安全性

@@ -4,7 +4,9 @@ title:
 status: backlog
 owner: unassigned
 priority: medium
+start:
 due:
+depends_on:
 requirement: REQ-xxxx
 plan:
 frontend_repo:

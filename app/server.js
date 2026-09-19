@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createTask, generateWbs, listTasks, readTask, updateTask } from './lib/markdown.js';
+import { buildGanttData, createTask, generateWbs, listTasks, readTask, updateTask } from './lib/markdown.js';
 import { commitAndPush, getGitPreview, getGitStatus, pullFastForward } from './lib/git.js';
 import { createAdapter } from './lib/adapters.js';
 
@@ -71,6 +71,9 @@ async function handleApi(request, response, url) {
   }
   if (request.method === 'POST' && url.pathname === '/api/wbs') {
     return sendJson(response, 200, await generateWbs(root));
+  }
+  if (request.method === 'GET' && url.pathname === '/api/gantt') {
+    return sendJson(response, 200, buildGanttData(await listTasks(root)));
   }
   if (request.method === 'GET' && url.pathname === '/api/git/status') {
     return sendJson(response, 200, await getGitStatus(root));

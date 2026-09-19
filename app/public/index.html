@@ -15,6 +15,7 @@
     <div class="topbar-actions">
       <span id="adapterBadge" class="badge">AI: loading</span>
       <button id="wbsButton" class="button secondary">WBSを生成</button>
+      <a class="button secondary nav-button" href="/gantt.html">ガント</a>
       <button id="pullButton" class="button secondary" disabled>Pull</button>
       <button id="commitPushButton" class="button secondary" disabled>Commit &amp; Push</button>
       <button id="refreshButton" class="button primary">更新</button>
@@ -74,7 +75,9 @@
         <label>状態<select name="status" required></select></label>
         <label>担当者<input name="owner" required></label>
         <label>優先度<select name="priority"><option>high</option><option>medium</option><option>low</option></select></label>
+        <label>開始日<input name="start" type="date"></label>
         <label>期限<input name="due" type="date"></label>
+        <label class="wide">先行Task<input name="depends_on" placeholder="EPF-0001, EPF-0002"></label>
         <label>Requirement<input name="requirement" pattern="REQ-[0-9]{4}" required></label>
         <label class="wide">本文<textarea name="body" rows="16"></textarea></label>
       </div>
