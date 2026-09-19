@@ -78,6 +78,11 @@ Git remote (Markdownの共有履歴)
 - 推奨フローを「手動 git pull → 編集・生成 → 内容確認 → WBS再生成 → git status確認 → 手動 git add / commit / push」とする。
 - 通常のGit操作はアプリ外（CLIまたは既存Gitクライアント）で行う。アプリは状態と必要な案内を表示する。
 - Git状態パネルに、任意の人間操作後にユーザーが明示的に押せる `Commit & Push` を置く。自動実行はしない。
+- `Commit & Push` はヘッダーの「更新」ボタン左側に置く。変更がない場合と実行条件を満たさない場合は無効化し、理由を表示する。
+- 実行前に確認ダイアログで変更ファイル一覧とcommit messageを表示する。利用者が確定した後だけ実行する。
+- 実行中はボタンを無効化し、「コミット中」「送信中」を画面に表示する。二重実行を防ぐ。
+- 完了時はcommitの短縮IDと送信先ブランチを成功表示し、Git状態を再読込する。失敗時はcommit前かpush時かを区別して表示する。
+- pushが失敗した場合、作成済みのローカルcommitは残ることを表示し、自動pull、rebase、force pushは行わない。
 - 実行前に、現在のブランチにupstreamが設定済みであり、Git競合がないことを検証する。
 - 確認ダイアログに変更ファイル一覧とcommit messageを表示し、利用者が確認した全変更だけをステージする。
 - commit messageは操作内容から決定的に生成し、pushは通常の `git push` のみとする。push拒否時はcommitをローカルに残して案内し、pull / rebase / force pushを自動実行しない。
@@ -147,6 +152,7 @@ Git remote (Markdownの共有履歴)
 - pull後に再読込するとKanbanとGit状態が一致する。
 - 利用者が `Commit & Push` を押した場合だけ、確認ダイアログに表示した変更を含むcommitが現在のupstreamへpushされる。
 - upstream未設定、push拒否、Git競合がある場合はcommit / pushせず、理由と次の手順を表示する。
+- 実行中、成功、失敗の状態が画面で区別でき、実行中に二重操作できない。
 - Codex利用可能なメンバーはCodex、利用不可なメンバーはMockで起動できる。
 - リポジトリに秘密情報、Codex認証情報、一時出力が追加されない。
 - WBSがTask正本から再生成され、手編集を前提にしない。
