@@ -22,6 +22,13 @@ async function api(url, options = {}) {
   return data;
 }
 
+// 処理中のボタンを無効にし、aria-busyで「使えない」状態と区別する（待機カーソルは処理中だけに使う）。
+function setBusy(button, busy) {
+  button.disabled = busy;
+  if (busy) button.setAttribute('aria-busy', 'true');
+  else button.removeAttribute('aria-busy');
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -124,7 +131,7 @@ taskForm.addEventListener('submit', async (event) => {
   const id = document.querySelector('#dialogTaskId').textContent;
   const payload = Object.fromEntries(new FormData(taskForm));
   const button = taskForm.querySelector('[type="submit"]');
-  button.disabled = true;
+  setBusy(button, true);
   try {
     await api(`/api/tasks/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     dialog.close();
@@ -132,7 +139,7 @@ taskForm.addEventListener('submit', async (event) => {
     toast(`${id} を保存しました`);
   } catch (error) {
     document.querySelector('#saveStatus').textContent = error.message;
-  } finally { button.disabled = false; }
+  } finally { setBusy(button, false); }
 });
 const createDialog = document.querySelector('#createDialog');
 const createForm = document.querySelector('#createForm');
@@ -155,7 +162,7 @@ createForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(createForm));
   const button = createForm.querySelector('[type="submit"]');
-  button.disabled = true;
+  setBusy(button, true);
   try {
     const { task } = await api('/api/tasks', { method: 'POST', body: JSON.stringify(payload) });
     createDialog.close();
@@ -163,7 +170,7 @@ createForm.addEventListener('submit', async (event) => {
     toast(`${task.id} を作成しました`);
   } catch (error) {
     document.querySelector('#createStatus').textContent = error.message;
-  } finally { button.disabled = false; }
+  } finally { setBusy(button, false); }
 });
 document.querySelector('#closeCreateDialog').addEventListener('click', () => createDialog.close());
 document.querySelector('#cancelCreateDialog').addEventListener('click', () => createDialog.close());
@@ -198,7 +205,7 @@ chatForm.addEventListener('submit', async (event) => {
   input.value = '';
   const pending = addMessage('分析中...', 'assistant');
   const button = event.currentTarget.querySelector('button');
-  button.disabled = true;
+  setBusy(button, true);
   try {
     const response = await api('/api/chat', { method: 'POST', body: JSON.stringify({ message }) });
     pending.textContent = response.result.message;
@@ -209,7 +216,7 @@ chatForm.addEventListener('submit', async (event) => {
   } catch (error) {
     pending.textContent = `エラー: ${error.message}`;
     pending.classList.add('warning');
-  } finally { button.disabled = false; }
+  } finally { setBusy(button, false); }
 });
 
 async function loadGit() {
@@ -236,9 +243,9 @@ document.querySelector('#gitRefresh').addEventListener('click', loadGit);
 async function gitPreview() { return api('/api/git/preview'); }
 async function runGitOperation(button, busyText, action) {
   const original = button.textContent;
-  button.disabled = true;
+  setBusy(button, true);
   button.textContent = busyText;
-  try { await action(); } finally { button.textContent = original; await loadGit(); }
+  try { await action(); } finally { button.textContent = original; button.removeAttribute('aria-busy'); await loadGit(); }
 }
 document.querySelector('#pullButton').addEventListener('click', async (event) => {
   const button = event.currentTarget;
@@ -267,13 +274,13 @@ document.querySelector('#commitPushButton').addEventListener('click', async (eve
   } catch (error) { toast(error.message); }
 });
 document.querySelector('#wbsButton').addEventListener('click', async (event) => {
-  event.currentTarget.disabled = true;
+  setBusy(event.currentTarget, true);
   try {
     const result = await api('/api/wbs', { method: 'POST' });
     toast(`${result.taskCount}件からWBSを生成しました`);
     loadGit();
   } catch (error) { toast(error.message); }
-  finally { event.currentTarget.disabled = false; }
+  finally { setBusy(event.currentTarget, false); }
 });
 
 let toastTimer;

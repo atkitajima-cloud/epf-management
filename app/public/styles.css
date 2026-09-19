@@ -29,7 +29,8 @@ button { cursor: pointer; }
 .topbar .button.primary { color: #29265e; background: #fff; }
 .button.secondary { color: #36346f; background: #ecebff; }
 .topbar .button.secondary { color: #fff; background: rgba(255,255,255,.13); }
-.button:disabled { cursor: wait; opacity: .6; }
+.button:disabled { cursor: not-allowed; opacity: .6; }
+.button[aria-busy="true"] { cursor: wait; }
 
 .workspace { height: calc(100vh - 78px); display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
 .board-panel { min-width: 0; padding: 22px 20px; overflow: hidden; }
