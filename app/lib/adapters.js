@@ -23,7 +23,7 @@ export class MockCodexAdapter {
       return {
         message: `「${title}」をBacklogへ追加します。`,
         action: 'create_task',
-        task: { title, status: 'backlog', owner: 'unassigned', priority: 'medium', requirement }
+        task: { title, status: 'backlog', owner: 'unassigned', priority: 'medium', requirement: text.match(/REQ-\d{4}/)?.[0] || '' }
       };
     }
     if (/分割/.test(text)) {

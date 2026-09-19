@@ -3,7 +3,7 @@ import path from 'node:path';
 
 export const STATUSES = ['backlog', 'ready', 'doing', 'review', 'done'];
 export const PRIORITIES = ['low', 'medium', 'high'];
-export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority', 'requirement'];
+export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority'];
 
 function parseScalar(value) {
   const trimmed = value.trim();
@@ -176,7 +176,7 @@ export async function nextTaskId(root) {
   return `EPF-${String(max + 1).padStart(4, '0')}`;
 }
 
-const BODY_TEMPLATE = `# 背景
+export const BODY_TEMPLATE = `# 背景
 
 （未記入）
 
@@ -210,7 +210,7 @@ export async function listRequirements(root) {
 export async function createTask(root, input, { strict = false } = {}) {
   const text = (value) => String(value ?? '').trim();
   const choose = (value, allowed, defaultValue) => (strict ? (value || defaultValue) : (allowed.includes(value) ? value : defaultValue));
-  const requirement = strict ? text(input.requirement) : (/^REQ-\d{4}$/.test(input.requirement || '') ? input.requirement : 'REQ-0001');
+  const requirement = strict ? text(input.requirement) : (/^REQ-\d{4}$/.test(input.requirement || '') ? input.requirement : '');
   const data = {
     title: text(input.title) || (strict ? '' : '新しいタスク'),
     status: choose(input.status, STATUSES, 'backlog'),
@@ -221,7 +221,7 @@ export async function createTask(root, input, { strict = false } = {}) {
   validateTask({ id: 'EPF-0000', ...data });
   if (strict) {
     const requirements = await listRequirements(root);
-    if (!requirements.some((item) => item.id === requirement)) throw new Error(`${requirement}は存在しません`);
+    if (requirement && !requirements.some((item) => item.id === requirement)) throw new Error(`${requirement}は存在しません`);
     const existing = new Set((await listTasks(root)).map((task) => task.id));
     for (const id of parseDependencies(data.depends_on)) if (!existing.has(id)) throw new Error(`先行Task ${id}は存在しません`);
   }
@@ -251,7 +251,7 @@ export async function generateWbs(root) {
     '|---|---|---|---|---|---|---|---|---|---|---|',
     ...tasks.map((task) => {
       const item = ganttById.get(task.id);
-      return `| ${task.id} | ${escape(task.title)} | ${task.status} | ${escape(task.owner)} | ${task.priority} | ${task.start || '-'} | ${task.due || '-'} | ${item.progress.value}%${item.progress.estimated ? ' (推定)' : ''} | ${item.scheduleStatus} | ${item.dependencies.join(', ') || '-'} | ${task.requirement} |`;
+      return `| ${task.id} | ${escape(task.title)} | ${task.status} | ${escape(task.owner)} | ${task.priority} | ${task.start || '-'} | ${task.due || '-'} | ${item.progress.value}%${item.progress.estimated ? ' (推定)' : ''} | ${item.scheduleStatus} | ${item.dependencies.join(', ') || '-'} | ${task.requirement || '-'} |`;
     }), ''
   ];
   await fs.writeFile(path.join(root, 'views', 'wbs.md'), lines.join('\n'), 'utf8');

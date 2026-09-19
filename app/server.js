@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildGanttData, createTask, generateWbs, listRequirements, listTasks, readTask, updateTask } from './lib/markdown.js';
+import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listRequirements, listTasks, readTask, updateTask } from './lib/markdown.js';
 import { commitAndPush, getGitPreview, getGitStatus, pullFastForward } from './lib/git.js';
 import { createAdapter } from './lib/adapters.js';
 
@@ -51,7 +51,7 @@ async function handleApi(request, response, url) {
     return sendJson(response, 201, { task: await createTask(root, await readJson(request), { strict: true }) });
   }
   if (request.method === 'GET' && url.pathname === '/api/requirements') {
-    return sendJson(response, 200, { requirements: await listRequirements(root) });
+    return sendJson(response, 200, { requirements: await listRequirements(root), bodyTemplate: BODY_TEMPLATE });
   }
   const taskMatch = url.pathname.match(/^\/api\/tasks\/(EPF-\d{4})$/);
   if (request.method === 'GET' && taskMatch) {

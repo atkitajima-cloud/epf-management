@@ -133,10 +133,11 @@ createForm.elements.status.innerHTML = statuses.map((status) => `<option value="
 
 document.querySelector('#newTaskButton').addEventListener('click', async () => {
   try {
-    const { requirements } = await api('/api/requirements');
-    createForm.elements.requirement.innerHTML = requirements
-      .map((item) => `<option value="${item.id}">${escapeHtml(item.id)} ${escapeHtml(item.title)}</option>`).join('');
+    const { requirements, bodyTemplate } = await api('/api/requirements');
+    createForm.elements.requirement.innerHTML = ['<option value=""></option>', ...requirements
+      .map((item) => `<option value="${item.id}">${escapeHtml(item.id)} ${escapeHtml(item.title)}</option>`)].join('');
     createForm.reset();
+    createForm.elements.body.value = bodyTemplate;
     document.querySelector('#createStatus').textContent = '';
     createDialog.showModal();
   } catch (error) { toast(error.message); }

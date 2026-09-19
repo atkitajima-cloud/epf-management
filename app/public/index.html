@@ -81,7 +81,7 @@
         <label>開始日<input name="start" type="date"></label>
         <label>期限<input name="due" type="date"></label>
         <label class="wide">先行Task<input name="depends_on" placeholder="EPF-0001, EPF-0002"></label>
-        <label>Requirement<input name="requirement" pattern="REQ-[0-9]{4}" required></label>
+        <label>Requirement<input name="requirement" pattern="REQ-[0-9]{4}"></label>
         <label class="wide">本文<textarea name="body" rows="16"></textarea></label>
       </div>
       <div class="dialog-actions">
@@ -109,8 +109,8 @@
         <label>開始日<input name="start" type="date"></label>
         <label>期限<input name="due" type="date"></label>
         <label class="wide">先行Task<input name="depends_on" placeholder="EPF-0001, EPF-0002"></label>
-        <label>Requirement<select name="requirement" required></select></label>
-        <label class="wide">本文（空欄の場合は雛形を使用）<textarea name="body" rows="12"></textarea></label>
+        <label>Requirement<select name="requirement"></select></label>
+        <label class="wide">本文<textarea name="body" rows="12"></textarea></label>
       </div>
       <div class="dialog-actions">
         <span id="createStatus" class="save-status"></span>

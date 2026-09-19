@@ -68,16 +68,16 @@ templates/    Markdownテンプレート
 app/          ローカルWebアプリ
 ```
 
-Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `requirement` です。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
+Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority` です。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
 
 ## Taskの作成
 
 Taskは次の2つの経路で作成できます。どちらも `tasks/EPF-nnnn.md` を新規作成します。
 
-- **画面**: ボード見出し右の「新規Task」からフォームで作成します。タイトル、担当者、Requirementは必須で、不正な入力は補完せずエラーを表示します。Requirementは `requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文が空の場合は、背景・目的・完了条件・関連の見出しを持つ雛形を使います。Planは指定できず、Front Matterにも書きません。
+- **画面**: ボード見出し右の「新規Task」からフォームで作成します。タイトルと担当者は必須で、不正な入力は補完せずエラーを表示します。Requirementは任意で、指定する場合は `requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文欄には、背景・目的・完了条件・関連の見出しを持つ雛形が最初から入っており、編集して作成できます。空にして作成した場合も、同じ雛形を保存します。Planは指定できず、Front Matterにも書きません。
 - **AI Chat**: 「〜のタスクを作って」と依頼します。不足する項目は既定値で補います。
 
-APIは `POST /api/tasks`（作成。成功は201、入力不正は400）と `GET /api/requirements`（Requirement一覧）です。
+APIは `POST /api/tasks`（作成。成功は201、入力不正は400）と `GET /api/requirements`（Requirement一覧と本文の雛形）です。
 
 ## 設計上の境界
 

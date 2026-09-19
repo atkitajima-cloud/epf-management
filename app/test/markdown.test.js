@@ -88,8 +88,8 @@ test('画面からのTask作成は不正な入力を補完せず、ファイル�
     { ...valid, priority: 'urgent' },
     { ...valid, start: '2026/09/01' },
     { ...valid, start: '2026-09-10', due: '2026-09-01' },
-    { ...valid, requirement: '' },
     { ...valid, requirement: 'REQ-9999' },
+    { ...valid, requirement: 'bad' },
     { ...valid, depends_on: 'EPF-9999' }
   ];
   for (const input of cases) await assert.rejects(createTask(root, input, { strict: true }), undefined, JSON.stringify(input));
@@ -100,9 +100,23 @@ test('AIチャット用の作成は従来どおり補完し、planを書かな�
   const root = await makeRoot(context);
   const created = await createTask(root, { title: '', requirement: 'bad', status: 'bad' });
   assert.equal(created.title, '新しいタスク');
-  assert.equal(created.requirement, 'REQ-0001');
+  assert.equal(created.requirement, '');
   assert.equal(created.status, 'backlog');
   assert.doesNotMatch(await fs.readFile(path.join(root, 'tasks', `${created.id}.md`), 'utf8'), /^plan:/m);
+});
+
+test('Requirementは空欄でTaskを作成でき、一覧・更新・WBSでも不正扱いにならない', async (context) => {
+  const root = await makeRoot(context);
+  await fs.mkdir(path.join(root, 'views'));
+  const created = await createTask(root, { title: 'Requirementなし', owner: 'tester' }, { strict: true });
+  assert.equal(created.requirement, '');
+  assert.match(await fs.readFile(path.join(root, 'tasks', `${created.id}.md`), 'utf8'), /^requirement:$/m);
+  const listed = (await listTasks(root)).find((task) => task.id === created.id);
+  assert.equal(listed.invalid, undefined);
+  assert.equal((await updateTask(root, created.id, { status: 'doing' })).status, 'doing');
+  await generateWbs(root);
+  assert.match(await fs.readFile(path.join(root, 'views', 'wbs.md'), 'utf8'), /Requirementなし .*\| - \|$/m);
+  assert.equal(buildGanttData(await listTasks(root)).tasks.length, 2);
 });
 
 test('同時作成してもIDが重複しない', async (context) => {
