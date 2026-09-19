@@ -106,5 +106,4 @@ for (const [id, field] of [['#ownerFilter', 'owner'], ['#statusFilter', 'status'
 }
 document.querySelectorAll('[data-scale]').forEach((button) => button.addEventListener('click', () => { state.scale = button.dataset.scale; document.querySelectorAll('[data-scale]').forEach((item) => item.classList.toggle('active', item === button)); renderGantt(); scrollToday(); }));
 document.querySelector('#todayButton').addEventListener('click', scrollToday);
-document.querySelector('#refreshButton').addEventListener('click', load);
 load();
