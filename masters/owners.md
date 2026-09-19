@@ -17,4 +17,6 @@ Taskの `owner` に指定できる担当者の一覧です。画面の担当者�
 - sato
 - suzuki
 - tanaka
+- kitajima
+
 - yamada
