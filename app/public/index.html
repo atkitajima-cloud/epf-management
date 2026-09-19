@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EPF Management</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">LOCAL PROJECT WORKSPACE</div>
+      <h1>EPF Management</h1>
+    </div>
+    <div class="topbar-actions">
+      <span id="adapterBadge" class="badge">AI: loading</span>
+      <button id="wbsButton" class="button secondary">WBSを生成</button>
+      <button id="refreshButton" class="button primary">更新</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="board-panel" aria-labelledby="boardTitle">
+      <div class="section-heading">
+        <div>
+          <h2 id="boardTitle">Project board</h2>
+          <p>カードを列へ移動するとMarkdownのstatusが更新されます。</p>
+        </div>
+        <span id="taskCount" class="task-count">0 tasks</span>
+      </div>
+      <div id="board" class="board" aria-live="polite"></div>
+    </section>
+
+    <aside class="side-panel">
+      <section class="chat-panel">
+        <div class="section-heading compact">
+          <div>
+            <h2>AI Chat</h2>
+            <p>プロジェクト全体を見て支援します。</p>
+          </div>
+        </div>
+        <div id="messages" class="messages" aria-live="polite">
+          <div class="message assistant">タスク追加、分割案、優先順位、抜け漏れ、WBS生成を依頼できます。</div>
+        </div>
+        <form id="chatForm" class="chat-form">
+          <textarea id="chatInput" rows="3" placeholder="例: 証票一覧に取引先名検索を追加するタスクを作って" required></textarea>
+          <button class="button primary" type="submit">送信</button>
+        </form>
+      </section>
+
+      <section class="git-panel">
+        <div class="git-heading">
+          <h2>Git</h2>
+          <button id="gitRefresh" class="icon-button" title="Git状態を更新">↻</button>
+        </div>
+        <div id="gitStatus" class="git-status">確認中...</div>
+      </section>
+    </aside>
+  </main>
+
+  <dialog id="taskDialog" class="task-dialog">
+    <form id="taskForm">
+      <div class="dialog-heading">
+        <div>
+          <span id="dialogTaskId" class="task-id"></span>
+          <h2>Task details</h2>
+        </div>
+        <button type="button" id="closeDialog" class="icon-button" aria-label="閉じる">×</button>
+      </div>
+      <div class="form-grid">
+        <label class="wide">タイトル<input name="title" required></label>
+        <label>状態<select name="status" required></select></label>
+        <label>担当者<input name="owner" required></label>
+        <label>優先度<select name="priority"><option>high</option><option>medium</option><option>low</option></select></label>
+        <label>期限<input name="due" type="date"></label>
+        <label>Requirement<input name="requirement" pattern="REQ-[0-9]{4}" required></label>
+        <label class="wide">本文<textarea name="body" rows="16"></textarea></label>
+      </div>
+      <div class="dialog-actions">
+        <span id="saveStatus" class="save-status"></span>
+        <button type="button" id="cancelDialog" class="button secondary">キャンセル</button>
+        <button type="submit" class="button primary">Markdownへ保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
