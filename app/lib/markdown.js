@@ -233,30 +233,24 @@ export async function listRequirements(root) {
   return results;
 }
 
-// strict=trueは画面からの作成用で、不正な入力を補完せずエラーにする。falseはAIチャット用で既定値で補う。
-export async function createTask(root, input, { strict = false } = {}) {
+export async function createTask(root, input) {
   const text = (value) => String(value ?? '').trim();
-  const choose = (value, allowed, defaultValue) => (strict ? (value || defaultValue) : (allowed.includes(value) ? value : defaultValue));
-  const requirement = strict ? text(input.requirement) : (/^REQ-\d{4}$/.test(input.requirement || '') ? input.requirement : '');
+  const choose = (value, defaultValue) => value || defaultValue;
+  const requirement = text(input.requirement);
   const data = {
-    title: text(input.title) || (strict ? '' : '新しいタスク'),
-    status: choose(input.status, STATUSES, 'backlog'),
-    owner: text(input.owner) || (strict ? '' : 'unassigned'),
-    priority: choose(input.priority, PRIORITIES, 'medium'),
+    title: text(input.title),
+    status: choose(input.status, 'backlog'),
+    owner: text(input.owner),
+    priority: choose(input.priority, 'medium'),
     start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement
   };
   validateTask({ id: 'EPF-0000', ...data });
   const owners = await requireOwners(root);
-  if (!owners.includes(data.owner)) {
-    if (strict) throw new Error(ownerNotFoundMessage(data.owner));
-    data.owner = 'unassigned';
-  }
-  if (strict) {
-    const requirements = await listRequirements(root);
-    if (requirement && !requirements.some((item) => item.id === requirement)) throw new Error(`${requirement}は存在しません`);
-    const existing = new Set((await listTasks(root)).map((task) => task.id));
-    for (const id of parseDependencies(data.depends_on)) if (!existing.has(id)) throw new Error(`先行Task ${id}は存在しません`);
-  }
+  if (!owners.includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
+  const requirements = await listRequirements(root);
+  if (requirement && !requirements.some((item) => item.id === requirement)) throw new Error(`${requirement}は存在しません`);
+  const existing = new Set((await listTasks(root)).map((task) => task.id));
+  for (const id of parseDependencies(data.depends_on)) if (!existing.has(id)) throw new Error(`先行Task ${id}は存在しません`);
   const body = text(input.body) || BODY_TEMPLATE;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const id = await nextTaskId(root);

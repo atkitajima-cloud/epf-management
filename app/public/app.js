@@ -2,11 +2,11 @@
 const statuses = [
   {
     id: 'backlog', label: 'Backlog', color: '#8b94a7', hint: '確認前の候補',
-    description: 'まだ確認していない候補。AIが要求から作ったTaskの下書きもここに入る。完了条件・担当者・先行Taskが未確認で、着手の順番も決まっていない。'
+    description: 'まだ確認していない候補。完了条件・担当者・先行Taskが未確認で、着手の順番も決まっていない。'
   },
   {
-    id: 'ready', label: 'Ready', color: '#4385d0', hint: '着手できる（AIに渡してよい）',
-    description: '人が確認済みで、いつでも着手できる状態。完了条件が書かれ、担当者が決まり、先行Taskが終わっているか待つ必要がない。AIに着手を任せてよいのはこの状態から。'
+    id: 'ready', label: 'Ready', color: '#4385d0', hint: '着手できる',
+    description: '人が確認済みで、いつでも着手できる状態。完了条件が書かれ、担当者が決まり、先行Taskが終わっているか待つ必要がない。'
   },
   { id: 'doing', label: 'Doing', color: '#d18a2d', hint: '作業中', description: '着手して、作業している。' },
   {
@@ -20,7 +20,6 @@ const state = { tasks: [], draggingId: null };
 const board = document.querySelector('#board');
 const dialog = document.querySelector('#taskDialog');
 const taskForm = document.querySelector('#taskForm');
-const messages = document.querySelector('#messages');
 
 async function api(url, options = {}) {
   const response = await fetch(url, {
@@ -188,47 +187,57 @@ document.querySelector('#cancelCreateDialog').addEventListener('click', () => cr
 document.querySelector('#closeDialog').addEventListener('click', () => dialog.close());
 document.querySelector('#cancelDialog').addEventListener('click', () => dialog.close());
 
-function addMessage(text, type = 'assistant') {
-  const element = document.createElement('div');
-  element.className = `message ${type}`;
-  element.textContent = text;
-  messages.append(element);
-  messages.scrollTop = messages.scrollHeight;
-  return element;
+const historyFieldLabels = {
+  title: 'タイトル', status: '状態', owner: '担当者', priority: '優先度',
+  start: '開始日', due: '期限', requirement: 'Requirement', depends_on: '先行Task'
+};
+
+function historyDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ja-JP', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  }).format(date);
 }
 
-const chatForm = document.querySelector('#chatForm');
-const chatInput = document.querySelector('#chatInput');
+function historyValue(value) {
+  return value === '' || value == null ? '未設定' : value;
+}
 
-chatInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) {
-    event.preventDefault();
-    chatForm.requestSubmit();
-  }
-});
+function renderHistoryEntry(entry) {
+  const tasks = entry.taskChanges.map((task) => {
+    const details = task.action === 'created'
+      ? '<div class=\'history-change\'>Taskを追加</div>'
+      : task.changes.length
+        ? task.changes.map((change) => `<div class='history-change'>${escapeHtml(historyFieldLabels[change.field] || change.field)}: ${escapeHtml(historyValue(change.before))} → ${escapeHtml(historyValue(change.after))}</div>`).join('')
+        : '<div class=\'history-change\'>Taskを変更</div>';
+    return `<div class='history-task'>
+      <div><span class='history-task-id'>${escapeHtml(task.taskId)}</span></div>
+      ${task.taskTitle ? `<div class='history-task-title'>${escapeHtml(task.taskTitle)}</div>` : ''}
+      ${details}
+    </div>`;
+  }).join('');
+  const fallback = tasks ? '' : `<div class='history-files'>変更ファイル ${entry.files.length}件</div>`;
+  return `<article class='history-entry'>
+    <div class='history-meta'><time datetime='${escapeHtml(entry.date)}'>${escapeHtml(historyDate(entry.date))}</time><span class='history-author'>${escapeHtml(entry.author)}</span><span class='history-hash'>${escapeHtml(entry.hash)}</span></div>
+    ${tasks}
+    <div class='history-message'>${escapeHtml(entry.message)}</div>
+    ${fallback}
+  </article>`;
+}
 
-chatForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const input = chatInput;
-  const message = input.value.trim();
-  if (!message) return;
-  addMessage(message, 'user');
-  input.value = '';
-  const pending = addMessage('分析中...', 'assistant');
-  const button = event.currentTarget.querySelector('button');
-  setBusy(button, true);
+async function loadHistory() {
+  const container = document.querySelector('#historyList');
   try {
-    const response = await api('/api/chat', { method: 'POST', body: JSON.stringify({ message }) });
-    pending.textContent = response.result.message;
-    if (response.createdTask) pending.textContent += `\n\n${response.createdTask.id} を作成しました。`;
-    if (response.wbs) pending.textContent += `\n\n${response.wbs.taskCount}件からWBSを更新しました。`;
-    if (response.fallbackUsed) addMessage(`Codexを利用できなかったためMockで継続しました: ${response.warning}`, 'warning');
-    await Promise.all([loadTasks(), loadGit()]);
+    const result = await api('/api/git/history');
+    if (!result.isRepository) return void (container.innerHTML = '<div class=\'history-empty\'>Git repositoryではありません</div>');
+    container.innerHTML = result.history.length
+      ? result.history.map(renderHistoryEntry).join('')
+      : '<div class=\'history-empty\'>履歴はありません</div>';
   } catch (error) {
-    pending.textContent = `エラー: ${error.message}`;
-    pending.classList.add('warning');
-  } finally { setBusy(button, false); }
-});
+    container.textContent = error.message;
+  }
+}
 
 // fetch: trueのときだけ共有側の最新を取得する（通信するため、ページ表示時などには行わない）。
 async function loadGit({ fetch = false } = {}) {
@@ -246,13 +255,7 @@ async function loadGit({ fetch = false } = {}) {
   } catch (error) { container.textContent = error.message; }
 }
 
-async function loadMeta() {
-  try {
-    const meta = await api('/api/meta');
-    document.querySelector('#adapterBadge').textContent = `AI: ${meta.adapter}${meta.fallback ? ` → ${meta.fallback}` : ''}`;
-  } catch { document.querySelector('#adapterBadge').textContent = 'AI: unavailable'; }
-}
-
+document.querySelector('#historyRefresh').addEventListener('click', loadHistory);
 document.querySelector('#gitRefresh').addEventListener('click', () => loadGit({ fetch: true }));
 async function gitPreview() { return api('/api/git/preview'); }
 async function runGitOperation(button, busyText, action) {
@@ -281,8 +284,8 @@ document.querySelector('#pullButton').addEventListener('click', async (event) =>
       if (result.outcome === 'conflict') return alertConflict(result);
       if (result.outcome === 'fetch-failed') return toast(`共有側を確認できませんでした: ${result.error}`);
       if (result.outcome === 'error') return toast(result.error);
+      await Promise.all([loadHistory(), result.outcome === 'integrated' ? loadTasks() : Promise.resolve()]);
       if (result.outcome === 'up-to-date') return toast('他の人の更新はありませんでした');
-      await loadTasks();
       toast('他の人の更新を取り込みました');
     });
   } catch (error) { toast(error.message); }
@@ -305,7 +308,7 @@ document.querySelector('#commitPushButton').addEventListener('click', async (eve
       if (result.outcome === 'fetch-failed') return toast(`${saved}共有側を確認できなかったため、送信していません: ${result.error}`);
       if (result.outcome === 'error') return toast(`${saved}${result.error}`);
       if (result.outcome === 'push-failed') return toast(`${saved}送信に失敗しました。もう一度Commit & Pushを押してください: ${result.pushError}`);
-      if (result.integrated) await loadTasks();
+      await Promise.all([loadHistory(), result.integrated ? loadTasks() : Promise.resolve()]);
       toast(`${result.integrated ? '他の人の更新を取り込んで、' : ''}${result.commit} を ${result.upstream} へ送信しました`);
     });
   } catch (error) { toast(error.message); }
@@ -330,6 +333,6 @@ function toast(message) {
 }
 
 const taskFromGantt = new URLSearchParams(window.location.search).get('task');
-Promise.all([loadTasks(), loadGit(), loadMeta()]).then(() => {
+Promise.all([loadTasks(), loadGit(), loadHistory()]).then(() => {
   if (/^EPF-\d{4}$/.test(taskFromGantt || '')) openTask(taskFromGantt);
 }).catch((error) => toast(error.message));

@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
-import { commitAndPush, getGitPreview, getGitStatus, pullLatest } from '../lib/git.js';
+import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest } from '../lib/git.js';
 
 const run = promisify(execFile);
 const git = async (cwd, ...args) => (await run('git', args, { cwd })).stdout.trim();
@@ -57,6 +57,90 @@ async function assertNotRebasing(dir) {
   }
   assert.equal(await git(dir, 'status', '--porcelain'), '', '作業ツリーがクリーンではない');
 }
+
+async function setupHistoryRepository(context) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'epf-history-'));
+  context.after(() => fs.rm(dir, { recursive: true, force: true }));
+  await git(dir, 'init', '-q', '-b', 'main');
+  await git(dir, 'config', 'user.name', '履歴テスト担当');
+  await git(dir, 'config', 'user.email', 'history@example.com');
+  return dir;
+}
+
+const taskMarkdown = (values) => `---
+id: ${values.id}
+title: ${values.title}
+status: ${values.status}
+owner: ${values.owner}
+priority: ${values.priority}
+start: ${values.start || ''}
+due: ${values.due || ''}
+requirement: ${values.requirement || ''}
+depends_on: ${values.depends_on || ''}
+---
+
+# ${values.title}
+`;
+
+test('Git repositoryでない場合は空の履歴を返す', async (context) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'epf-not-git-'));
+  context.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const result = await getGitHistory(dir);
+  assert.equal(result.isRepository, false);
+  assert.deepEqual(result.history, []);
+});
+
+test('commitがないGit repositoryは空の履歴を返す', async (context) => {
+  const dir = await setupHistoryRepository(context);
+  const result = await getGitHistory(dir);
+  assert.equal(result.isRepository, true);
+  assert.deepEqual(result.history, []);
+});
+
+test('通常commitとTask作成・Front Matter変更を新しい順に取得する', async (context) => {
+  const dir = await setupHistoryRepository(context);
+  await fs.writeFile(path.join(dir, 'README.md'), 'history test\n', 'utf8');
+  await git(dir, 'add', '-A');
+  await git(dir, 'commit', '-q', '-m', '通常の変更');
+
+  await fs.mkdir(path.join(dir, 'tasks'));
+  const taskFile = path.join(dir, 'tasks', 'EPF-0042.md');
+  await fs.writeFile(taskFile, taskMarkdown({
+    id: 'EPF-0042', title: '検索条件を追加する', status: 'ready', owner: 'suzuki', priority: 'medium', due: '2026-09-23'
+  }), 'utf8');
+  await git(dir, 'add', '-A');
+  await git(dir, 'commit', '-q', '-m', 'Taskを追加');
+
+  await fs.writeFile(taskFile, taskMarkdown({
+    id: 'EPF-0042', title: '検索条件を追加する', status: 'doing', owner: 'yamada', priority: 'high', due: '2026-09-25', requirement: 'REQ-0002', depends_on: 'EPF-0003'
+  }), 'utf8');
+  await git(dir, 'add', '-A');
+  await git(dir, 'commit', '-q', '-m', 'Taskの状態を更新');
+
+  const { isRepository, history } = await getGitHistory(dir);
+  assert.equal(isRepository, true);
+  assert.equal(history.length, 3);
+  assert.equal(history[0].message, 'Taskの状態を更新');
+  assert.equal(history[0].author, '履歴テスト担当');
+  assert.match(history[0].hash, /^[0-9a-f]+$/);
+  assert.match(history[0].date, /^\d{4}-\d{2}-\d{2}T/);
+  assert.deepEqual(history[0].files, ['tasks/EPF-0042.md']);
+  assert.equal(history[0].taskChanges[0].taskId, 'EPF-0042');
+  assert.equal(history[0].taskChanges[0].taskTitle, '検索条件を追加する');
+  assert.equal(history[0].taskChanges[0].action, 'updated');
+  assert.deepEqual(history[0].taskChanges[0].changes, [
+    { field: 'status', before: 'ready', after: 'doing' },
+    { field: 'owner', before: 'suzuki', after: 'yamada' },
+    { field: 'priority', before: 'medium', after: 'high' },
+    { field: 'due', before: '2026-09-23', after: '2026-09-25' },
+    { field: 'requirement', before: '', after: 'REQ-0002' },
+    { field: 'depends_on', before: '', after: 'EPF-0003' }
+  ]);
+  assert.equal(history[1].taskChanges[0].action, 'created');
+  assert.deepEqual(history[1].taskChanges[0].changes, []);
+  assert.equal(history[2].message, '通常の変更');
+  assert.deepEqual(history[2].taskChanges, []);
+});
 
 test('先にpushされていても、Commit & Pushで積み直して共有できる（merge commitを作らない）', async (context) => {
   const { remote, a, b } = await setup(context);

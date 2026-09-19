@@ -13,7 +13,6 @@
       <h1>EPF Management</h1>
     </div>
     <div class="topbar-actions">
-      <span id="adapterBadge" class="badge">AI: loading</span>
       <button id="wbsButton" class="button secondary">WBSを生成</button>
       <a class="button secondary nav-button" href="/gantt.html">ガント</a>
       <button id="pullButton" class="button secondary" disabled>Pull</button>
@@ -37,20 +36,12 @@
     </section>
 
     <aside class="side-panel">
-      <section class="chat-panel">
-        <div class="section-heading compact">
-          <div>
-            <h2>AI Chat</h2>
-            <p>プロジェクト全体を見て支援します。</p>
-          </div>
+      <section class="history-panel" aria-labelledby="historyTitle">
+        <div class="history-heading">
+          <h2 id="historyTitle">変更履歴</h2>
+          <button id="historyRefresh" class="icon-button" title="変更履歴を更新" aria-label="変更履歴を更新">↻</button>
         </div>
-        <div id="messages" class="messages" aria-live="polite">
-          <div class="message assistant">タスク追加、分割案、優先順位、抜け漏れ、WBS生成を依頼できます。</div>
-        </div>
-        <form id="chatForm" class="chat-form">
-          <textarea id="chatInput" rows="3" placeholder="例: 証票一覧に取引先名検索を追加するタスクを作って" required></textarea>
-          <button class="button primary" type="submit">送信</button>
-        </form>
+        <div id="historyList" class="history-list" aria-live="polite">確認中...</div>
       </section>
 
       <section class="git-panel">

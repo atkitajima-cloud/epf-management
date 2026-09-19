@@ -8,6 +8,8 @@ const exec = promisify(execFile);
 const WBS_PATH = 'views/wbs.md';
 const MAX_WBS_RESOLUTIONS = 20;
 const NETWORK_TIMEOUT_MS = 60000;
+const HISTORY_LIMIT = 20;
+const TASK_FIELDS = ['title', 'status', 'owner', 'priority', 'start', 'due', 'requirement', 'depends_on'];
 
 async function git(root, args, { timeout } = {}) {
   // エディタや認証の入力待ちで止まらないようにする。
@@ -63,6 +65,77 @@ export async function getGitStatus(root, { fetch = false } = {}) {
     };
   } catch (error) {
     return { isRepository: false, branch: '', upstream: null, changes: [], ahead: 0, behind: 0, fetchError: null, error: message(error) };
+  }
+}
+
+function parseFrontMatter(source) {
+  const match = String(source || '').replace(/\r/g, '').match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
+  if (!match) return null;
+  return Object.fromEntries(match[1].split('\n').flatMap((line) => {
+    const field = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+    if (!field) return [];
+    const value = field[2].trim().replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, (_, double, single) => double ?? single);
+    return [[field[1], value]];
+  }));
+}
+
+async function taskAt(root, revision, file) {
+  if (!revision) return null;
+  const source = await optional(root, ['show', `${revision}:${file}`]);
+  return source ? parseFrontMatter(source) : null;
+}
+
+async function taskChange(root, hash, status, file) {
+  const match = file.match(/^tasks\/(EPF-\d{4})\.md$/);
+  if (!match || !['A', 'M'].includes(status[0])) return null;
+  const [before, after] = await Promise.all([
+    status[0] === 'A' ? null : taskAt(root, `${hash}^`, file),
+    taskAt(root, hash, file)
+  ]);
+  if (!after) return null;
+  const changes = status[0] === 'A'
+    ? []
+    : TASK_FIELDS.flatMap((field) => (before?.[field] ?? '') === (after[field] ?? '') ? [] : [{
+      field, before: before?.[field] ?? '', after: after[field] ?? ''
+    }]);
+  return {
+    taskId: after.id || match[1],
+    taskTitle: after.title || before?.title || '',
+    action: status[0] === 'A' ? 'created' : 'updated',
+    changes
+  };
+}
+
+async function historyEntry(root, hash) {
+  const [{ stdout: metadata }, { stdout: changed }] = await Promise.all([
+    git(root, ['show', '-s', '--format=%H%x00%h%x00%an%x00%aI%x00%s', hash]),
+    git(root, ['diff-tree', '--root', '--no-commit-id', '--name-status', '-r', '--find-renames', hash])
+  ]);
+  const [fullHash, shortHash, author, date, commitMessage] = metadata.trimEnd().split('\0');
+  const rows = changed.replace(/\r/g, '').trim().split('\n').filter(Boolean).map((line) => {
+    const [status, ...paths] = line.split('\t');
+    return { status, file: paths.at(-1) };
+  });
+  const taskChanges = (await Promise.all(rows.map(({ status, file }) => taskChange(root, hash, status, file)))).filter(Boolean);
+  return {
+    hash: shortHash,
+    fullHash,
+    author,
+    date,
+    message: commitMessage,
+    files: rows.map(({ file }) => file),
+    taskChanges
+  };
+}
+
+export async function getGitHistory(root, { limit = HISTORY_LIMIT } = {}) {
+  try {
+    await git(root, ['rev-parse', '--is-inside-work-tree']);
+    const safeLimit = Math.min(HISTORY_LIMIT, Math.max(0, Number.parseInt(limit, 10) || HISTORY_LIMIT));
+    const hashes = (await optional(root, ['log', `-${safeLimit}`, '--format=%H'])).split(/\r?\n/).filter(Boolean);
+    return { isRepository: true, history: await Promise.all(hashes.map((hash) => historyEntry(root, hash))) };
+  } catch (error) {
+    return { isRepository: false, history: [], error: message(error) };
   }
 }
 

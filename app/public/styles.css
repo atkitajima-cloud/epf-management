@@ -23,7 +23,6 @@ button { cursor: pointer; }
 .topbar h1 { margin: 2px 0 0; font-size: 22px; letter-spacing: -.02em; }
 .eyebrow { font-size: 10px; letter-spacing: .16em; opacity: .7; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
-.badge { padding: 7px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 99px; font-size: 12px; background: rgba(255,255,255,.1); }
 .button { border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 650; }
 .button.primary { color: #fff; background: var(--accent); }
 .topbar .button.primary { color: #29265e; background: #fff; }
@@ -35,9 +34,8 @@ button { cursor: pointer; }
 .workspace { height: calc(100vh - 78px); display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
 .board-panel { min-width: 0; padding: 22px 20px; overflow: hidden; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; margin: 0 2px 16px; }
-.section-heading h2, .git-heading h2 { margin: 0; font-size: 18px; }
+.section-heading h2, .git-heading h2, .history-heading h2 { margin: 0; font-size: 18px; }
 .section-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-.section-heading.compact { margin-bottom: 12px; }
 .heading-actions { display: flex; align-items: center; gap: 12px; }
 .task-count { color: var(--muted); font-size: 12px; }
 
@@ -64,16 +62,23 @@ button { cursor: pointer; }
 .owner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .side-panel { min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; border-left: 1px solid var(--line); background: var(--surface); }
-.chat-panel { min-height: 0; display: flex; flex-direction: column; padding: 20px 16px 14px; }
-.messages { min-height: 0; flex: 1; overflow-y: auto; padding: 4px 3px 12px; }
-.message { max-width: 92%; margin-bottom: 9px; padding: 10px 11px; border-radius: 10px; white-space: pre-wrap; font-size: 12px; line-height: 1.55; }
-.message.assistant { margin-right: auto; color: #3e3b70; background: var(--accent-soft); border-bottom-left-radius: 3px; }
-.message.user { margin-left: auto; color: #fff; background: #585b6d; border-bottom-right-radius: 3px; }
-.message.warning { color: #7a5519; background: #fff4d8; }
-.chat-form { display: grid; gap: 8px; }
+.history-panel { min-height: 0; display: flex; flex-direction: column; padding: 20px 16px 14px; }
+.history-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.history-list { min-height: 0; flex: 1; overflow-y: auto; color: var(--muted); font-size: 12px; }
+.history-entry { padding: 12px 2px; border-bottom: 1px solid var(--line); }
+.history-entry:first-child { padding-top: 4px; }
+.history-meta { display: flex; align-items: baseline; gap: 8px; color: var(--muted); font-size: 11px; }
+.history-author { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 650; }
+.history-hash { margin-left: auto; font-family: Consolas, monospace; font-size: 10px; }
+.history-task { margin-top: 8px; }
+.history-task-id { color: #5e6190; font-weight: 750; letter-spacing: .04em; }
+.history-task-title { margin-top: 2px; color: var(--ink); font-size: 12px; font-weight: 650; }
+.history-change { margin-top: 5px; color: #373a50; line-height: 1.45; overflow-wrap: anywhere; }
+.history-message { margin-top: 7px; color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+.history-files { margin-top: 4px; color: var(--muted); font-size: 11px; }
+.history-empty { padding: 18px 2px; }
 textarea, input, select { width: 100%; border: 1px solid #d6dbe5; border-radius: 8px; padding: 9px 10px; color: var(--ink); background: #fff; }
 textarea:focus, input:focus, select:focus { outline: 2px solid #c9c7ff; border-color: var(--accent); }
-.chat-form textarea { resize: vertical; min-height: 72px; max-height: 150px; }
 .git-panel { border-top: 1px solid var(--line); padding: 14px 16px 16px; }
 .git-heading { display: flex; align-items: center; justify-content: space-between; }
 .icon-button { width: 31px; height: 31px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 20px; }
@@ -105,7 +110,6 @@ textarea:focus, input:focus, select:focus { outline: 2px solid #c9c7ff; border-c
 @media (max-width: 620px) {
   .topbar { align-items: flex-start; padding: 12px 14px; }
   .topbar-actions { flex-wrap: wrap; justify-content: flex-end; }
-  .badge { display: none; }
   .board-panel { padding: 16px 10px; }
   .section-heading p { display: none; }
   .form-grid { grid-template-columns: 1fr; }

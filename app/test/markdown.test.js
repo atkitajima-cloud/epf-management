@@ -27,7 +27,7 @@ test('Task作成・status更新・WBS生成がMarkdownへ反映される', async
   await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown(sample, '# Sample'), 'utf8');
 
   const created = await createTask(root, {
-    title: 'AI created', priority: 'high', requirement: 'REQ-0001', body: '# 目的\n\nTest'
+    title: '新しいTask', owner: 'tester', priority: 'high', body: '# 目的\n\nTest'
   });
   assert.equal(created.id, 'EPF-0002');
   assert.equal((await listTasks(root)).length, 2);
@@ -40,7 +40,7 @@ test('Task作成・status更新・WBS生成がMarkdownへ反映される', async
   assert.equal(result.taskCount, 2);
   const wbs = await fs.readFile(path.join(root, 'views', 'wbs.md'), 'utf8');
   assert.match(wbs, /EPF-0002/);
-  assert.match(wbs, /AI created/);
+  assert.match(wbs, /新しいTask/);
 });
 
 test('ガント用の進捗率と遅延判定をTask正本から生成できる', () => {
@@ -70,14 +70,14 @@ async function makeRoot(context) {
 
 test('画面からのTask作成は共通の雛形を使い、planを書かず、往復できる', async (context) => {
   const root = await makeRoot(context);
-  const created = await createTask(root, { title: '画面から', owner: 'tester', requirement: 'REQ-0001', depends_on: 'EPF-0001', status: 'ready' }, { strict: true });
+  const created = await createTask(root, { title: '画面から', owner: 'tester', requirement: 'REQ-0001', depends_on: 'EPF-0001', status: 'ready' });
   assert.equal(created.id, 'EPF-0002');
   const source = await fs.readFile(path.join(root, 'tasks', 'EPF-0002.md'), 'utf8');
   assert.doesNotMatch(source, /^plan:/m);
   const parsed = parseMarkdown(source);
   assert.equal(parsed.data.status, 'ready');
   assert.equal(parsed.body.trim(), '# 背景\n\n（未記入）\n\n# 目的\n\n（未記入）\n\n# 完了条件\n\n- [ ] \n- [ ] \n- [ ] \n\n# 関連\n\n（未記入）');
-  const own = await createTask(root, { title: '本文あり', owner: 'tester', requirement: 'REQ-0001', body: '# 独自' }, { strict: true });
+  const own = await createTask(root, { title: '本文あり', owner: 'tester', requirement: 'REQ-0001', body: '# 独自' });
   assert.equal(own.body, '# 独自');
   assert.deepEqual(await listRequirements(root), [{ id: 'REQ-0001', title: '要件' }]);
 });
@@ -96,23 +96,14 @@ test('画面からのTask作成は不正な入力を補完せず、ファイル�
     { ...valid, requirement: 'bad' },
     { ...valid, depends_on: 'EPF-9999' }
   ];
-  for (const input of cases) await assert.rejects(createTask(root, input, { strict: true }), undefined, JSON.stringify(input));
+  for (const input of cases) await assert.rejects(createTask(root, input), undefined, JSON.stringify(input));
   assert.equal((await listTasks(root)).length, 1);
-});
-
-test('AIチャット用の作成は従来どおり補完し、planを書かない', async (context) => {
-  const root = await makeRoot(context);
-  const created = await createTask(root, { title: '', requirement: 'bad', status: 'bad' });
-  assert.equal(created.title, '新しいタスク');
-  assert.equal(created.requirement, '');
-  assert.equal(created.status, 'backlog');
-  assert.doesNotMatch(await fs.readFile(path.join(root, 'tasks', `${created.id}.md`), 'utf8'), /^plan:/m);
 });
 
 test('Requirementは空欄でTaskを作成でき、一覧・更新・WBSでも不正扱いにならない', async (context) => {
   const root = await makeRoot(context);
   await fs.mkdir(path.join(root, 'views'));
-  const created = await createTask(root, { title: 'Requirementなし', owner: 'tester' }, { strict: true });
+  const created = await createTask(root, { title: 'Requirementなし', owner: 'tester' });
   assert.equal(created.requirement, '');
   assert.match(await fs.readFile(path.join(root, 'tasks', `${created.id}.md`), 'utf8'), /^requirement:$/m);
   const listed = (await listTasks(root)).find((task) => task.id === created.id);
@@ -126,7 +117,7 @@ test('Requirementは空欄でTaskを作成でき、一覧・更新・WBSでも�
 test('同時作成してもIDが重複しない', async (context) => {
   const root = await makeRoot(context);
   const results = await Promise.all(Array.from({ length: 4 }, (_, index) =>
-    createTask(root, { title: `t${index}`, owner: 'tester', requirement: 'REQ-0001' }, { strict: true })));
+    createTask(root, { title: `t${index}`, owner: 'tester', requirement: 'REQ-0001' })));
   assert.equal(new Set(results.map((task) => task.id)).size, 4);
 });
 
@@ -141,15 +132,9 @@ test('担当者マスタは「- ID」形式の行だけを読み、重複と不�
 
 test('画面からの作成は、マスタにない担当者を拒否してファイルを作らない', async (context) => {
   const root = await makeRoot(context);
-  await assert.rejects(createTask(root, { title: 'x', owner: 'stranger' }, { strict: true }), /stranger.*担当者マスタ/);
+  await assert.rejects(createTask(root, { title: 'x', owner: 'stranger' }), /stranger.*担当者マスタ/);
   assert.equal((await listTasks(root)).length, 1);
-  assert.equal((await createTask(root, { title: 'x', owner: 'agent' }, { strict: true })).owner, 'agent');
-});
-
-test('AIチャット用の作成は、マスタにない担当者をunassignedにする', async (context) => {
-  const root = await makeRoot(context);
-  assert.equal((await createTask(root, { title: 'x', owner: 'stranger' })).owner, 'unassigned');
-  assert.equal((await createTask(root, { title: 'y', owner: 'agent' })).owner, 'agent');
+  assert.equal((await createTask(root, { title: 'x', owner: 'agent' })).owner, 'agent');
 });
 
 test('更新は担当者を変更するときだけマスタと照合する', async (context) => {
@@ -167,8 +152,8 @@ test('更新は担当者を変更するときだけマスタと照合する', as
 test('マスタがない場合は、作成と担当者の変更を理由付きで拒否する', async (context) => {
   const root = await makeRoot(context);
   await fs.rm(path.join(root, 'masters'), { recursive: true });
-  await assert.rejects(createTask(root, { title: 'x', owner: 'tester' }, { strict: true }), /masters\/owners\.md/);
-  await assert.rejects(createTask(root, { title: 'x' }), /masters\/owners\.md/);
+  await assert.rejects(createTask(root, { title: 'x', owner: 'tester' }), /masters\/owners\.md/);
+  await assert.rejects(createTask(root, { title: 'x', owner: 'tester' }), /masters\/owners\.md/);
   await assert.rejects(updateTask(root, 'EPF-0001', { owner: 'agent' }), /masters\/owners\.md/);
   assert.equal((await updateTask(root, 'EPF-0001', { status: 'doing' })).status, 'doing');
   assert.equal((await listTasks(root)).length, 1);

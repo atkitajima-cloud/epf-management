@@ -3,14 +3,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, updateTask } from './lib/markdown.js';
-import { commitAndPush, getGitPreview, getGitStatus, pullLatest } from './lib/git.js';
-import { createAdapter } from './lib/adapters.js';
+import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest } from './lib/git.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(appDir, '..');
 const publicDir = path.join(appDir, 'public');
 const port = Number(process.env.PORT || 4173);
-const { adapter, fallback } = createAdapter({ root, schemaPath: path.join(appDir, 'codex-response.schema.json') });
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -34,15 +32,6 @@ async function readJson(request) {
   catch { throw new Error('JSONが不正です'); }
 }
 
-async function runAi(message) {
-  try {
-    return { result: await adapter.run(message), adapter: adapter.name, fallbackUsed: false };
-  } catch (error) {
-    if (!fallback) throw error;
-    return { result: await fallback.run(message), adapter: fallback.name, fallbackUsed: true, warning: error.message };
-  }
-}
-
 // 積み直しの途中でviews/wbs.mdだけが競合した場合に、Taskから再生成するために渡す。
 const regenerateWbs = () => generateWbs(root);
 
@@ -51,7 +40,7 @@ async function handleApi(request, response, url) {
     return sendJson(response, 200, { tasks: await listTasks(root) });
   }
   if (request.method === 'POST' && url.pathname === '/api/tasks') {
-    return sendJson(response, 201, { task: await createTask(root, await readJson(request), { strict: true }) });
+    return sendJson(response, 201, { task: await createTask(root, await readJson(request)) });
   }
   if (request.method === 'GET' && url.pathname === '/api/owners') {
     return sendJson(response, 200, { owners: await listOwners(root) });
@@ -71,16 +60,6 @@ async function handleApi(request, response, url) {
     const { status } = await readJson(request);
     return sendJson(response, 200, { task: await updateTask(root, id, { status }) });
   }
-  if (request.method === 'POST' && url.pathname === '/api/chat') {
-    const { message } = await readJson(request);
-    if (!String(message || '').trim()) return sendJson(response, 400, { error: 'メッセージを入力してください' });
-    const ai = await runAi(String(message));
-    let createdTask = null;
-    let wbs = null;
-    if (ai.result.action === 'create_task') createdTask = await createTask(root, ai.result.task || {});
-    if (ai.result.action === 'generate_wbs') wbs = await generateWbs(root);
-    return sendJson(response, 200, { ...ai, createdTask, wbs });
-  }
   if (request.method === 'POST' && url.pathname === '/api/wbs') {
     return sendJson(response, 200, await generateWbs(root));
   }
@@ -89,6 +68,9 @@ async function handleApi(request, response, url) {
   }
   if (request.method === 'GET' && url.pathname === '/api/git/status') {
     return sendJson(response, 200, await getGitStatus(root, { fetch: url.searchParams.get('fetch') === '1' }));
+  }
+  if (request.method === 'GET' && url.pathname === '/api/git/history') {
+    return sendJson(response, 200, await getGitHistory(root));
   }
   if (request.method === 'GET' && url.pathname === '/api/git/preview') {
     return sendJson(response, 200, await getGitPreview(root));
@@ -99,9 +81,6 @@ async function handleApi(request, response, url) {
   if (request.method === 'POST' && url.pathname === '/api/git/commit-push') {
     const { message } = await readJson(request);
     return sendJson(response, 200, await commitAndPush(root, message, { regenerateWbs }));
-  }
-  if (request.method === 'GET' && url.pathname === '/api/meta') {
-    return sendJson(response, 200, { adapter: adapter.name, fallback: fallback?.name || null, port });
   }
   return false;
 }
@@ -137,5 +116,4 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`EPF Management: http://localhost:${port}`);
-  console.log(`AI Adapter: ${adapter.name}${fallback ? ` (fallback: ${fallback.name})` : ''}`);
 });

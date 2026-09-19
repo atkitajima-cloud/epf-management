@@ -2,7 +2,7 @@
   "name": "epf-management",
   "version": "0.1.0",
   "private": true,
-  "description": "Markdown/Gitを正本とするAI駆動ローカルプロジェクト管理PoC",
+  "description": "Markdown/Gitを正本とする人間向けProject Viewer / Editor",
   "type": "module",
   "scripts": {
     "start": "node app/server.js",
