@@ -52,7 +52,7 @@ export class CodexAdapter {
     const outputPath = path.join(os.tmpdir(), `epf-codex-${process.pid}-${Date.now()}.json`);
     const prompt = [
       'あなたはローカルプロジェクト管理アプリの分析Adapterです。',
-      '現在のリポジトリ内のcontext, requirements, tasks, plansをread-onlyで確認してください。',
+      '現在のリポジトリ内のcontext, requirements, tasksをread-onlyで確認してください。',
       'ファイルは絶対に変更しないでください。出力schemaに従うJSONだけを最終回答にしてください。',
       'actionは、明示的なタスク作成依頼ならcreate_task、WBS生成依頼ならgenerate_wbs、それ以外はnoneです。',
       '分割、優先順位変更、抜け漏れ分析は提案だけをmessageに書き、actionはnoneにしてください。',

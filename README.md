@@ -99,7 +99,7 @@ decisions/    意思決定（ADR-xxxx）
 meetings/     会議記録
 tasks/        Taskの正本（EPF-xxxx、1タスク1ファイル）
 masters/      担当者マスタ（owners.md）
-plans/        大きな変更のPlan
+plans/        このアプリ自体の大きな変更のPlan（管理対象のTaskとは無関係）
 views/        Taskから生成する派生View
 templates/    Markdownテンプレート
 app/          ローカルWebアプリ
