@@ -238,7 +238,7 @@ async function loadGit({ fetch = false } = {}) {
     if (!git.isRepository) return void (container.textContent = 'Git repositoryではありません');
     document.querySelector('#pullButton').disabled = !git.upstream || git.changes.length > 0;
     document.querySelector('#commitPushButton').disabled = !git.upstream || (git.changes.length === 0 && git.ahead === 0);
-    const sync = [git.ahead ? `共有していないcommit ${git.ahead}件` : '', git.behind ? `共有側の更新 ${git.behind}件` : ''].filter(Boolean);
+    const sync = [git.ahead ? `pushしていないcommit ${git.ahead}件` : '', git.behind ? `共有側の更新 ${git.behind}件` : ''].filter(Boolean);
     container.innerHTML = `<strong>${escapeHtml(git.branch)}</strong> · ${git.changes.length} changes` +
       (sync.length ? `<div>${sync.join(' · ')}</div>` : '') +
       (git.fetchError ? `<div class="git-error">共有側を確認できませんでした: ${escapeHtml(git.fetchError)}</div>` : '') +
@@ -274,7 +274,7 @@ document.querySelector('#pullButton').addEventListener('click', async (event) =>
   try {
     const preview = await gitPreview();
     if (!preview.canPull) throw new Error(preview.conflicts ? 'Git競合を解消してからPullしてください' : preview.changes.length ? '未コミット変更があります。先にCommit & Pushしてください' : 'upstreamが設定されていません');
-    const pending = preview.ahead ? `共有していないcommitが${preview.ahead}件あります。他の人の更新を取り込んだ上に、それらを置き直します。` : '';
+    const pending = preview.ahead ? `pushしていないcommitが${preview.ahead}件あります。他の人の更新を取り込んだ上に、それらを置き直します。` : '';
     if (!window.confirm(`${preview.upstream} から他の人の更新を取り込みます。${pending}続行しますか？`)) return;
     await runGitOperation(button, '取得中...', async () => {
       const result = await api('/api/git/pull', { method: 'POST' });
@@ -297,7 +297,7 @@ document.querySelector('#commitPushButton').addEventListener('click', async (eve
       const files = preview.changes.map((item) => `${item.status} ${item.path}`).join('\n');
       commitMessage = window.prompt(`以下の変更をCommit & Pushします。\n他の人の更新があれば、取り込んでから送信します。\n\n${files}\n\nコミットメッセージ:`, '変更を更新');
       if (commitMessage === null) return;
-    } else if (!window.confirm(`共有していないcommitが${preview.ahead}件あります。他の人の更新があれば取り込んでから、送信します。続行しますか？`)) return;
+    } else if (!window.confirm(`pushしていないcommitが${preview.ahead}件あります。他の人の更新があれば取り込んでから、送信します。続行しますか？`)) return;
     await runGitOperation(button, '送信中...', async () => {
       const result = await api('/api/git/commit-push', { method: 'POST', body: JSON.stringify({ message: commitMessage }) });
       const saved = result.committed ? `${result.commit} をコミットしました。` : '';
