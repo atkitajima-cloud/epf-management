@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -77,8 +78,8 @@ export class CodexAdapter {
 
 function runProcess(command, args, input, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const executable = process.platform === 'win32' ? `${command}.exe` : command;
-    const child = spawn(executable, args, { windowsHide: true });
+    const invocation = resolveInvocation(command, args);
+    const child = spawn(invocation.executable, invocation.args, { windowsHide: true });
     let stderr = '';
     const timer = setTimeout(() => {
       child.kill();
@@ -95,6 +96,23 @@ function runProcess(command, args, input, timeoutMs) {
   });
 }
 
+function resolveInvocation(command, args) {
+  if (process.env.CODEX_CLI_PATH) {
+    const configured = path.resolve(process.env.CODEX_CLI_PATH);
+    return configured.endsWith('.js')
+      ? { executable: process.execPath, args: [configured, ...args] }
+      : { executable: configured, args };
+  }
+  if (process.platform === 'win32') {
+    const npmCli = path.join(
+      process.env.APPDATA || '',
+      'npm', 'node_modules', '@openai', 'codex', 'bin', 'codex.js'
+    );
+    if (existsSync(npmCli)) return { executable: process.execPath, args: [npmCli, ...args] };
+    return { executable: `${command}.exe`, args };
+  }
+  return { executable: command, args };
+}
 export function createAdapter(options) {
   const mock = new MockCodexAdapter();
   if ((process.env.AI_ADAPTER || 'mock').toLowerCase() !== 'codex') {

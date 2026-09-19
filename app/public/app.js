@@ -139,9 +139,19 @@ function addMessage(text, type = 'assistant') {
   return element;
 }
 
-document.querySelector('#chatForm').addEventListener('submit', async (event) => {
+const chatForm = document.querySelector('#chatForm');
+const chatInput = document.querySelector('#chatInput');
+
+chatInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+    event.preventDefault();
+    chatForm.requestSubmit();
+  }
+});
+
+chatForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const input = document.querySelector('#chatInput');
+  const input = chatInput;
   const message = input.value.trim();
   if (!message) return;
   addMessage(message, 'user');
