@@ -99,9 +99,16 @@ async function loadTasks() {
   renderBoard();
 }
 
+function ownerOptions(owners, current) {
+  const options = owners.map((owner) => `<option value="${escapeHtml(owner)}">${escapeHtml(owner)}</option>`);
+  if (current && !owners.includes(current)) options.push(`<option value="${escapeHtml(current)}">${escapeHtml(current)}（マスタ未登録）</option>`);
+  return options.join('');
+}
+
 async function openTask(id) {
   try {
-    const { task } = await api(`/api/tasks/${id}`);
+    const [{ task }, { owners }] = await Promise.all([api(`/api/tasks/${id}`), api('/api/owners')]);
+    taskForm.elements.owner.innerHTML = ownerOptions(owners, task.owner);
     document.querySelector('#dialogTaskId').textContent = task.id;
     for (const field of ['title', 'status', 'owner', 'priority', 'start', 'due', 'depends_on', 'requirement', 'body']) {
       taskForm.elements[field].value = task[field] || '';
@@ -133,11 +140,13 @@ createForm.elements.status.innerHTML = statuses.map((status) => `<option value="
 
 document.querySelector('#newTaskButton').addEventListener('click', async () => {
   try {
-    const { requirements, bodyTemplate } = await api('/api/requirements');
+    const [{ requirements, bodyTemplate }, { owners }] = await Promise.all([api('/api/requirements'), api('/api/owners')]);
+    createForm.elements.owner.innerHTML = ownerOptions(owners);
     createForm.elements.requirement.innerHTML = ['<option value=""></option>', ...requirements
       .map((item) => `<option value="${item.id}">${escapeHtml(item.id)} ${escapeHtml(item.title)}</option>`)].join('');
     createForm.reset();
     createForm.elements.body.value = bodyTemplate;
+    if (owners.includes('unassigned')) createForm.elements.owner.value = 'unassigned';
     document.querySelector('#createStatus').textContent = '';
     createDialog.showModal();
   } catch (error) { toast(error.message); }

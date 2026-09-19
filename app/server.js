@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listRequirements, listTasks, readTask, updateTask } from './lib/markdown.js';
+import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, updateTask } from './lib/markdown.js';
 import { commitAndPush, getGitPreview, getGitStatus, pullFastForward } from './lib/git.js';
 import { createAdapter } from './lib/adapters.js';
 
@@ -49,6 +49,9 @@ async function handleApi(request, response, url) {
   }
   if (request.method === 'POST' && url.pathname === '/api/tasks') {
     return sendJson(response, 201, { task: await createTask(root, await readJson(request), { strict: true }) });
+  }
+  if (request.method === 'GET' && url.pathname === '/api/owners') {
+    return sendJson(response, 200, { owners: await listOwners(root) });
   }
   if (request.method === 'GET' && url.pathname === '/api/requirements') {
     return sendJson(response, 200, { requirements: await listRequirements(root), bodyTemplate: BODY_TEMPLATE });

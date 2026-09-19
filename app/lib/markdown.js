@@ -158,6 +158,31 @@ export async function readTask(root, id) {
   return { ...parsed.data, body: parsed.body };
 }
 
+const OWNERS_FILE = 'masters/owners.md';
+
+// masters/owners.mdの「- ID」形式の行だけを担当者として読む。ファイルがなければ空配列を返す。
+export async function listOwners(root) {
+  let source;
+  try { source = await fs.readFile(path.join(root, OWNERS_FILE), 'utf8'); }
+  catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+  const owners = [];
+  for (const line of source.replace(/\r\n/g, '\n').split('\n')) {
+    const id = line.match(/^- ([A-Za-z0-9_-]+)\s*$/)?.[1];
+    if (id && !owners.includes(id)) owners.push(id);
+  }
+  return owners;
+}
+
+async function requireOwners(root) {
+  const owners = await listOwners(root);
+  if (!owners.length) throw new Error(`担当者マスタ（${OWNERS_FILE}）が見つからないか、担当者が登録されていません`);
+  return owners;
+}
+
+function ownerNotFoundMessage(owner) {
+  return `担当者 ${owner} は担当者マスタ（${OWNERS_FILE}）にありません`;
+}
+
 export async function updateTask(root, id, changes) {
   const existing = await readTask(root, id);
   const allowed = ['title', 'status', 'owner', 'priority', 'start', 'due', 'depends_on', 'requirement', 'plan', 'frontend_repo', 'backend_repo'];
@@ -166,6 +191,8 @@ export async function updateTask(root, id, changes) {
   for (const key of allowed) if (key in changes) data[key] = String(changes[key] ?? '').trim();
   const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
   validateTask(data);
+  // 担当者を変更するときだけマスタと照合する。担当者を変えない更新は、マスタ未登録の値でも失敗させない。
+  if (data.owner !== existing.owner && !(await requireOwners(root)).includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
   await fs.writeFile(taskPath(root, id), serializeMarkdown(data, body), 'utf8');
   return { ...data, body };
 }
@@ -219,6 +246,11 @@ export async function createTask(root, input, { strict = false } = {}) {
     start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement
   };
   validateTask({ id: 'EPF-0000', ...data });
+  const owners = await requireOwners(root);
+  if (!owners.includes(data.owner)) {
+    if (strict) throw new Error(ownerNotFoundMessage(data.owner));
+    data.owner = 'unassigned';
+  }
   if (strict) {
     const requirements = await listRequirements(root);
     if (requirement && !requirements.some((item) => item.id === requirement)) throw new Error(`${requirement}は存在しません`);

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildGanttData, createTask, generateWbs, listRequirements, listTasks, parseMarkdown, progressForTask, serializeMarkdown, updateTask } from '../lib/markdown.js';
+import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, updateTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -22,6 +22,8 @@ test('Task作成・status更新・WBS生成がMarkdownへ反映される', async
   context.after(() => fs.rm(root, { recursive: true, force: true }));
   await fs.mkdir(path.join(root, 'tasks'));
   await fs.mkdir(path.join(root, 'views'));
+  await fs.mkdir(path.join(root, 'masters'));
+  await fs.writeFile(path.join(root, 'masters', 'owners.md'), '- unassigned\n- tester\n- agent\n', 'utf8');
   await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown(sample, '# Sample'), 'utf8');
 
   const created = await createTask(root, {
@@ -59,6 +61,8 @@ async function makeRoot(context) {
   context.after(() => fs.rm(root, { recursive: true, force: true }));
   await fs.mkdir(path.join(root, 'tasks'));
   await fs.mkdir(path.join(root, 'requirements'));
+  await fs.mkdir(path.join(root, 'masters'));
+  await fs.writeFile(path.join(root, 'masters', 'owners.md'), '# 担当者\n\n- unassigned\n- tester\n- agent\n', 'utf8');
   await fs.writeFile(path.join(root, 'requirements', 'REQ-0001.md'), '---\nid: REQ-0001\ntitle: 要件\n---\n', 'utf8');
   await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown(sample, '# Sample'), 'utf8');
   return root;
@@ -124,4 +128,48 @@ test('同時作成してもIDが重複しない', async (context) => {
   const results = await Promise.all(Array.from({ length: 4 }, (_, index) =>
     createTask(root, { title: `t${index}`, owner: 'tester', requirement: 'REQ-0001' }, { strict: true })));
   assert.equal(new Set(results.map((task) => task.id)).size, 4);
+});
+
+test('担当者マスタは「- ID」形式の行だけを読み、重複と不正な行を除く', async (context) => {
+  const root = await makeRoot(context);
+  await fs.writeFile(path.join(root, 'masters', 'owners.md'),
+    '# 担当者マスタ\r\n\r\n説明文\r\n\r\n- unassigned\r\n- sato\r\n- sato\r\n- bad name\r\n-nospace\r\n  - indented\r\n- ai-team_2\r\n', 'utf8');
+  assert.deepEqual(await listOwners(root), ['unassigned', 'sato', 'ai-team_2']);
+  await fs.rm(path.join(root, 'masters'), { recursive: true });
+  assert.deepEqual(await listOwners(root), []);
+});
+
+test('画面からの作成は、マスタにない担当者を拒否してファイルを作らない', async (context) => {
+  const root = await makeRoot(context);
+  await assert.rejects(createTask(root, { title: 'x', owner: 'stranger' }, { strict: true }), /stranger.*担当者マスタ/);
+  assert.equal((await listTasks(root)).length, 1);
+  assert.equal((await createTask(root, { title: 'x', owner: 'agent' }, { strict: true })).owner, 'agent');
+});
+
+test('AIチャット用の作成は、マスタにない担当者をunassignedにする', async (context) => {
+  const root = await makeRoot(context);
+  assert.equal((await createTask(root, { title: 'x', owner: 'stranger' })).owner, 'unassigned');
+  assert.equal((await createTask(root, { title: 'y', owner: 'agent' })).owner, 'agent');
+});
+
+test('更新は担当者を変更するときだけマスタと照合する', async (context) => {
+  const root = await makeRoot(context);
+  await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown({ ...sample, owner: 'legacy' }, '# Sample'), 'utf8');
+  const before = await fs.readFile(path.join(root, 'tasks', 'EPF-0001.md'), 'utf8');
+  assert.equal((await updateTask(root, 'EPF-0001', { status: 'doing' })).owner, 'legacy');
+  assert.equal((await updateTask(root, 'EPF-0001', { owner: 'legacy', title: '改題' })).owner, 'legacy');
+  await assert.rejects(updateTask(root, 'EPF-0001', { owner: 'stranger' }), /stranger.*担当者マスタ/);
+  assert.equal((await readTask(root, 'EPF-0001')).owner, 'legacy');
+  assert.equal((await updateTask(root, 'EPF-0001', { owner: 'agent' })).owner, 'agent');
+  assert.notEqual(before, await fs.readFile(path.join(root, 'tasks', 'EPF-0001.md'), 'utf8'));
+});
+
+test('マスタがない場合は、作成と担当者の変更を理由付きで拒否する', async (context) => {
+  const root = await makeRoot(context);
+  await fs.rm(path.join(root, 'masters'), { recursive: true });
+  await assert.rejects(createTask(root, { title: 'x', owner: 'tester' }, { strict: true }), /masters\/owners\.md/);
+  await assert.rejects(createTask(root, { title: 'x' }), /masters\/owners\.md/);
+  await assert.rejects(updateTask(root, 'EPF-0001', { owner: 'agent' }), /masters\/owners\.md/);
+  assert.equal((await updateTask(root, 'EPF-0001', { status: 'doing' })).status, 'doing');
+  assert.equal((await listTasks(root)).length, 1);
 });
