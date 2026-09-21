@@ -1,4 +1,4 @@
-import { buildDependencyPaths } from './gantt-dependencies.js';
+import { buildDependencyPaths, orderTasksByDependency } from './gantt-dependencies.js';
 
 const TIMELINE_LEFT = 670;
 const state = { data: null, scale: 'day', filter: { owner: '', status: 'not_done', targetRepo: '', requirement: '', schedule: '' } };
@@ -94,8 +94,15 @@ function renderDependencyLayer(tasks, timelineWidth) {
   const markup = paths.map((path) => `<path class="dependency-path" d="${path.d}" marker-end="url(#dependency-arrow)"><title>${escapeHtml(path.sourceId)} → ${escapeHtml(path.targetId)}</title></path>`).join('');
   ganttInner.insertAdjacentHTML('beforeend', `<svg class="dependency-layer" style="left:${TIMELINE_LEFT}px;top:${top}px;width:${timelineWidth}px;height:${rowsBox.height}px" aria-label="Taskの依存関係"><defs><marker id="dependency-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 6 3 L 0 6 z"></path></marker></defs>${markup}</svg>`);
 }
+function renderDependencyOrderWarning(unresolvedTaskIds) {
+  const section = document.querySelector('#dependencyOrderWarning');
+  section.hidden = unresolvedTaskIds.length === 0;
+  if (!unresolvedTaskIds.length) return;
+  section.querySelector('ul').innerHTML = `<li>循環依存またはその後続のため、依存順に並べられないTaskがあります: <b>${escapeHtml(unresolvedTaskIds.join(', '))}</b></li>`;
+}
 function renderGantt() {
-  const tasks = filteredTasks();
+  const dependencyOrder = orderTasksByDependency(filteredTasks());
+  const tasks = dependencyOrder.tasks;
   const timeline = buildTimeline(state.data.range);
   const columnWidth = state.scale === 'week' ? 116 : 38;
   const timelineWidth = timeline.units.length * columnWidth;
@@ -116,6 +123,7 @@ function renderGantt() {
   document.querySelector('#emptyState').hidden = tasks.length > 0;
   document.querySelector('#gantt').innerHTML = `<div class="gantt-inner"><div class="table-head"><div>Task</div><div>担当者</div><div>対象</div><div>進捗</div><div>判定</div><div class="timeline-head" style="width:${timelineWidth}px">${grid}</div></div><div class="rows">${rows}</div><div class="today-overlay" style="left:${TIMELINE_LEFT}px;width:${timelineWidth}px">${todayLine}</div></div>`;
   renderDependencyLayer(tasks, timelineWidth);
+  renderDependencyOrderWarning(dependencyOrder.unresolvedTaskIds);
   document.querySelectorAll('[data-id]').forEach((element) => element.addEventListener('click', () => window.location.href = `/?task=${element.dataset.id}`));
 }
 function renderWarnings() {
