@@ -8,7 +8,7 @@ EPF ManagementのTaskについて、担当するリポジトリ、または複�
 
 現行のFront Matterには `frontend_repo` と `backend_repo` があるが、`epf-project`、`epf-management`、共通作業を表せない。また、作成・編集画面にこれらを入力するUIもない。
 
-`target_repo` を単一の正本フィールドとして導入する。値は `epf-project`、`epf-management`、`epf-backend`、`epf-frontend`、`common` のいずれかとする。複数repoにまたがる作業、または特定repoに限定しない作業は `common` とする。複数の任意文字列を保存する方式は、PoCの用途に対して入力・絞り込み・移行を複雑にするため採用しない。画面上の表示名は、それぞれ `project`、`management`、`backend`、`frontend`、`common` とする。
+`target_repo` を単一の正本フィールドとして導入する。値は `epf-project`、`epf-management`、`epf-backend`、`epf-frontend`、`common` のいずれかとする。複数repoにまたがる作業、または特定repoに限定しない作業は `common` とする。複数の任意文字列を保存する方式は、PoCの用途に対して入力・絞り込み・移行を複雑にするため採用しない。画面上の表示名は、それぞれ `project`、`management`、`backend`、`frontend`、`common` とする。表示は優先度と同じバッジ形式とし、`project` は紫、`management` は緑、`backend` は青、`frontend` は橙、`common` は灰で固定する。
 
 旧 `frontend_repo` / `backend_repo` はTaskの正本フィールドから廃止する。既存Taskは、frontendのみなら `epf-frontend`、backendのみなら `epf-backend`、両方またはいずれもない場合は `common` へ移行する。
 
@@ -16,7 +16,7 @@ EPF ManagementのTaskについて、担当するリポジトリ、または複�
 
 - `app/lib/markdown.js` のFront Matter直列化、更新、Task作成、検証を `target_repo` に対応させる。
 - 作成・編集ダイアログに対象リポジトリの選択欄を追加する。
-- Kanbanとガントに対象リポジトリを表示し、対象リポジトリで絞り込めるようにする。Kanbanカードでは、担当者・期限と並ぶメタ情報として `backend` のような短縮名を常時表示する。
+- Kanbanとガントに対象リポジトリを表示し、対象リポジトリで絞り込めるようにする。Kanbanカードでは、優先度と同じバッジ形式で、repoごとに固定色を使った `backend` のような短縮名を常時表示する。
 - `tasks/*.md` の既存データを移行する。
 - Markdown I/O、Task作成・更新、Kanban・ガント表示の自動テストを追加・更新する。
 
