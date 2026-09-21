@@ -92,7 +92,7 @@ function renderDependencyLayer(tasks, timelineWidth) {
   const innerBox = ganttInner.getBoundingClientRect();
   const top = rowsBox.top - innerBox.top;
   const markup = paths.map((path) => `<path class="dependency-path" d="${path.d}" marker-end="url(#dependency-arrow)"><title>${escapeHtml(path.sourceId)} → ${escapeHtml(path.targetId)}</title></path>`).join('');
-  ganttInner.insertAdjacentHTML('beforeend', `<svg class="dependency-layer" style="left:${TIMELINE_LEFT}px;top:${top}px;width:${timelineWidth}px;height:${rowsBox.height}px" aria-label="Taskの依存関係"><defs><marker id="dependency-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>${markup}</svg>`);
+  ganttInner.insertAdjacentHTML('beforeend', `<svg class="dependency-layer" style="left:${TIMELINE_LEFT}px;top:${top}px;width:${timelineWidth}px;height:${rowsBox.height}px" aria-label="Taskの依存関係"><defs><marker id="dependency-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 6 3 L 0 6 z"></path></marker></defs>${markup}</svg>`);
 }
 function renderGantt() {
   const tasks = filteredTasks();
