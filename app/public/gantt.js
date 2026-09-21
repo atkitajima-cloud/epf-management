@@ -1,3 +1,6 @@
+import { buildDependencyPaths } from './gantt-dependencies.js';
+
+const TIMELINE_LEFT = 670;
 const state = { data: null, scale: 'day', filter: { owner: '', status: 'not_done', targetRepo: '', requirement: '', schedule: '' } };
 const labels = { done: '完了', overdue: '期限超過', start_late: '着手遅れ', blocked: '依存待ち', at_risk: '要注意', on_track: '予定どおり', unscheduled: '日程未設定', invalid: '日程矛盾' };
 const repositoryLabels = { 'epf-project': 'project', 'epf-management': 'management', 'epf-backend': 'backend', 'epf-frontend': 'frontend', common: 'common' };
@@ -63,6 +66,34 @@ function buildTimeline(range) {
   for (let date = start; date <= end; date = addDays(date, step)) units.push(date);
   return { start, end, units, step };
 }
+function renderDependencyLayer(tasks, timelineWidth) {
+  const ganttInner = document.querySelector('.gantt-inner');
+  const rows = ganttInner?.querySelector('.rows');
+  const timelineRow = ganttInner?.querySelector('.timeline-row');
+  if (!ganttInner || !rows || !timelineRow) return;
+
+  const rowsBox = rows.getBoundingClientRect();
+  const timelineBox = timelineRow.getBoundingClientRect();
+  const bars = new Map();
+  for (const task of tasks) {
+    const row = ganttInner.querySelector(`.task-row[data-row-id="${task.id}"]`);
+    const bar = row?.querySelector('.bar');
+    if (!bar) continue;
+    const box = bar.getBoundingClientRect();
+    bars.set(task.id, {
+      startX: box.left - timelineBox.left,
+      endX: box.right - timelineBox.left,
+      centerY: box.top - rowsBox.top + box.height / 2
+    });
+  }
+  const paths = buildDependencyPaths(tasks, bars);
+  if (!paths.length) return;
+
+  const innerBox = ganttInner.getBoundingClientRect();
+  const top = rowsBox.top - innerBox.top;
+  const markup = paths.map((path) => `<path class="dependency-path" d="${path.d}" marker-end="url(#dependency-arrow)"><title>${escapeHtml(path.sourceId)} → ${escapeHtml(path.targetId)}</title></path>`).join('');
+  ganttInner.insertAdjacentHTML('beforeend', `<svg class="dependency-layer" style="left:${TIMELINE_LEFT}px;top:${top}px;width:${timelineWidth}px;height:${rowsBox.height}px" aria-label="Taskの依存関係"><defs><marker id="dependency-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs>${markup}</svg>`);
+}
 function renderGantt() {
   const tasks = filteredTasks();
   const timeline = buildTimeline(state.data.range);
@@ -79,11 +110,12 @@ function renderGantt() {
     }
     const dependency = task.dependencies.length ? `<small>先行: ${escapeHtml(task.dependencies.join(', '))}</small>` : '';
     const warnings = task.warnings.length ? `<small class="row-warning">${escapeHtml(task.warnings.join(' / '))}</small>` : '';
-    return `<div class="task-row"><button class="task-cell" data-id="${task.id}"><b>${task.id}</b><span>${escapeHtml(task.title)}</span>${dependency}${warnings}</button><div class="owner-cell">${escapeHtml(task.owner)}</div><div class="repository-cell"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span></div><div class="progress-cell">${task.progress.value}%${task.progress.estimated ? '*' : ''}</div><div class="status-cell"><span class="status-pill ${task.scheduleStatus}">${labels[task.scheduleStatus]}</span></div><div class="timeline-row" style="width:${timelineWidth}px;background-size:${columnWidth}px 100%">${bar}</div></div>`;
+    return `<div class="task-row" data-row-id="${task.id}"><button class="task-cell" data-id="${task.id}"><b>${task.id}</b><span>${escapeHtml(task.title)}</span>${dependency}${warnings}</button><div class="owner-cell">${escapeHtml(task.owner)}</div><div class="repository-cell"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span></div><div class="progress-cell">${task.progress.value}%${task.progress.estimated ? '*' : ''}</div><div class="status-cell"><span class="status-pill ${task.scheduleStatus}">${labels[task.scheduleStatus]}</span></div><div class="timeline-row" style="width:${timelineWidth}px;background-size:${columnWidth}px 100%">${bar}</div></div>`;
   }).join('');
   const todayLine = todayIndex >= 0 && todayIndex < timeline.units.length ? `<div class="today-line" style="left:${todayIndex * columnWidth}px"><span>今日</span></div>` : '';
   document.querySelector('#emptyState').hidden = tasks.length > 0;
-  document.querySelector('#gantt').innerHTML = `<div class="gantt-inner"><div class="table-head"><div>Task</div><div>担当者</div><div>対象</div><div>進捗</div><div>判定</div><div class="timeline-head" style="width:${timelineWidth}px">${grid}</div></div><div class="rows">${rows}</div><div class="today-overlay" style="left:670px;width:${timelineWidth}px">${todayLine}</div></div>`;
+  document.querySelector('#gantt').innerHTML = `<div class="gantt-inner"><div class="table-head"><div>Task</div><div>担当者</div><div>対象</div><div>進捗</div><div>判定</div><div class="timeline-head" style="width:${timelineWidth}px">${grid}</div></div><div class="rows">${rows}</div><div class="today-overlay" style="left:${TIMELINE_LEFT}px;width:${timelineWidth}px">${todayLine}</div></div>`;
+  renderDependencyLayer(tasks, timelineWidth);
   document.querySelectorAll('[data-id]').forEach((element) => element.addEventListener('click', () => window.location.href = `/?task=${element.dataset.id}`));
 }
 function renderWarnings() {
@@ -94,7 +126,7 @@ function renderWarnings() {
 function scrollToday() {
   const timeline = buildTimeline(state.data.range);
   const index = Math.floor((dayNumber(state.data.today) - dayNumber(timeline.start)) / timeline.step);
-  document.querySelector('#gantt').scrollLeft = Math.max(0, 670 + index * (state.scale === 'week' ? 116 : 38) - 250);
+  document.querySelector('#gantt').scrollLeft = Math.max(0, TIMELINE_LEFT + index * (state.scale === 'week' ? 116 : 38) - 250);
 }
 function toast(message) { const element = document.querySelector('#toast'); element.textContent = message; element.classList.add('show'); setTimeout(() => element.classList.remove('show'), 2600); }
 async function load() {
