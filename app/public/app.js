@@ -50,6 +50,8 @@ function escapeHtml(value) {
 function renderBoard() {
   board.innerHTML = statuses.map((status) => {
     const tasks = state.tasks.filter((task) => task.status === status.id && !task.invalid);
+    if (status.id === 'done') tasks.sort((a, b) =>
+      (b.completed_at || '').localeCompare(a.completed_at || '') || b.id.localeCompare(a.id));
     return `
       <section class="column" data-status="${status.id}" style="--status-color:${status.color}" title="${escapeHtml(status.description)}">
         <header class="column-head">
