@@ -16,7 +16,7 @@ function monday(value) { const date = new Date(`${value}T00:00:00Z`); const day 
 
 function fillSelect(id, values, current) {
   const select = document.querySelector(id);
-  const extra = id === '#scheduleFilter' ? '<option value="risk">要注意（全種別）</option>' : id === '#statusFilter' ? '<option value="active">進行中（Doing / Review）</option>' : '';
+  const extra = id === '#scheduleFilter' ? '<option value="risk">要注意（全種別）</option>' : id === '#statusFilter' ? '<option value="not_done">完了以外</option><option value="active">進行中（Doing / Review）</option>' : '';
   select.innerHTML = `<option value="">すべて</option>${extra}${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(labels[value] || value)}</option>`).join('')}`;
   select.value = current;
 }
@@ -30,7 +30,7 @@ function updateFilters() {
 function filteredTasks() {
   return state.data.tasks.filter((task) =>
     (!state.filter.owner || task.owner === state.filter.owner) &&
-    (!state.filter.status || (state.filter.status === 'active' ? ['doing', 'review'].includes(task.status) : task.status === state.filter.status)) &&
+    (!state.filter.status || (state.filter.status === 'not_done' ? task.status !== 'done' : state.filter.status === 'active' ? ['doing', 'review'].includes(task.status) : task.status === state.filter.status)) &&
     (!state.filter.requirement || task.requirement === state.filter.requirement) &&
     (!state.filter.schedule || (state.filter.schedule === 'risk' ? ['at_risk', 'start_late', 'blocked'].includes(task.scheduleStatus) : task.scheduleStatus === state.filter.schedule))
   );
