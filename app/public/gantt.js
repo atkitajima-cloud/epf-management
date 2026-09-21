@@ -163,7 +163,6 @@ async function load() {
   try {
     state.data = await api('/api/gantt'); updateFilters(); renderSummary(); renderGantt(); renderWarnings();
     document.querySelector('#generatedAt').textContent = `更新: ${new Date(state.data.generatedAt).toLocaleString('ja-JP')}`;
-    scrollToday();
   } catch (error) { toast(error.message); }
 }
 for (const [id, field] of [['#ownerFilter', 'owner'], ['#statusFilter', 'status'], ['#repositoryFilter', 'targetRepo'], ['#requirementFilter', 'requirement'], ['#scheduleFilter', 'schedule']]) {
