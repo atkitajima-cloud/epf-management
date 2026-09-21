@@ -1,4 +1,4 @@
-const state = { data: null, scale: 'week', filter: { owner: '', status: '', requirement: '', schedule: '' } };
+const state = { data: null, scale: 'week', filter: { owner: '', status: 'not_done', requirement: '', schedule: '' } };
 const labels = { done: '完了', overdue: '期限超過', start_late: '着手遅れ', blocked: '依存待ち', at_risk: '要注意', on_track: '予定どおり', unscheduled: '日程未設定', invalid: '日程矛盾' };
 
 async function api(url) {
