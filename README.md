@@ -105,7 +105,7 @@ Kanbanの5つの列は、次の意味で使います。画面でも、各列の�
 
 アプリの動作はステータスによって変わりません（Readyにする条件を、アプリが確認することはありません）。
 
-Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority` です。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
+Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `target_repo` です。`target_repo` は `epf-project`, `epf-management`, `epf-backend`, `epf-frontend`, `common` のいずれかです。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。`completed_at` は完了日（YYYY-MM-DD）の任意項目で、画面でTaskを完了にした時に自動で記録され、差し戻すと消去されます。Markdownを直接編集して完了にする場合は、完了日を推測・補完しません。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
 
 ## Taskの作成
 

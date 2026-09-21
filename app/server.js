@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, updateTask } from './lib/markdown.js';
+import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, updateTask } from './lib/markdown.js';
 import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest } from './lib/git.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -37,7 +37,7 @@ const regenerateWbs = () => generateWbs(root);
 
 async function handleApi(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/tasks') {
-    return sendJson(response, 200, { tasks: await listTasks(root) });
+    return sendJson(response, 200, { tasks: sortTasksForBoard(await listTasks(root)) });
   }
   if (request.method === 'POST' && url.pathname === '/api/tasks') {
     return sendJson(response, 201, { task: await createTask(root, await readJson(request)) });

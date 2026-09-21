@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, updateTask } from '../lib/markdown.js';
+import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, updateTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -114,6 +114,25 @@ test('対象リポジトリを作成・更新でき、旧repo項目は保存し�
   assert.match(source, /^target_repo: epf-frontend$/m);
   assert.doesNotMatch(source, /^(frontend_repo|backend_repo):/m);
   await assert.rejects(updateTask(root, created.id, { target_repo: 'invalid' }), /target_repo/);
+});
+
+test('完了日を自動記録し、完了Taskを新しい順に並べる', async (context) => {
+  const root = await makeRoot(context);
+  const created = await createTask(root, { title: '完了で作成', owner: 'tester', status: 'done' });
+  assert.match(created.completed_at, /^\d{4}-\d{2}-\d{2}$/);
+  const completed = await updateTask(root, 'EPF-0001', { status: 'done' });
+  assert.match(completed.completed_at, /^\d{4}-\d{2}-\d{2}$/);
+  const reopened = await updateTask(root, 'EPF-0001', { status: 'ready' });
+  assert.equal(reopened.completed_at, '');
+  const recompleted = await updateTask(root, 'EPF-0001', { status: 'done' });
+  assert.match(recompleted.completed_at, /^\d{4}-\d{2}-\d{2}$/);
+  const sorted = sortTasksForBoard([
+    { ...sample, id: 'EPF-0001', status: 'done', completed_at: '2026-09-20' },
+    { ...sample, id: 'EPF-0002', status: 'done', completed_at: '2026-09-21' },
+    { ...sample, id: 'EPF-0003', status: 'done', completed_at: '' },
+    { ...sample, id: 'EPF-0004', status: 'ready', completed_at: '' }
+  ]);
+  assert.deepEqual(sorted.map((task) => task.id), ['EPF-0004', 'EPF-0002', 'EPF-0001', 'EPF-0003']);
 });
 
 test('Requirementは空欄でTaskを作成でき、一覧・更新・WBSでも不正扱いにならない', async (context) => {

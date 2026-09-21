@@ -35,7 +35,7 @@ function formatScalar(value) {
 }
 
 export function serializeMarkdown(data, body) {
-  const preferred = ['id', 'title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
+  const preferred = ['id', 'title', 'status', 'completed_at', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
   const legacy = new Set(['frontend_repo', 'backend_repo']);
   const keys = [...preferred.filter((key) => key in data), ...Object.keys(data).filter((key) => !preferred.includes(key) && !legacy.has(key))];
   return `---\n${keys.map((key) => data[key] === '' ? `${key}:` : `${key}: ${formatScalar(data[key])}`).join('\n')}\n---\n\n${String(body ?? '').trim()}\n`;
@@ -51,6 +51,8 @@ export function validateTask(task) {
   if (!STATUSES.includes(task.status)) throw new Error(`statusは${STATUSES.join(', ')}のいずれかです`);
   if (!PRIORITIES.includes(task.priority)) throw new Error(`priorityは${PRIORITIES.join(', ')}のいずれかです`);
   if (!TARGET_REPOSITORIES.includes(task.target_repo)) throw new Error(`target_repoは${TARGET_REPOSITORIES.join(', ')}のいずれかである必要があります`);
+  if (task.completed_at && !/^\d{4}-\d{2}-\d{2}$/.test(task.completed_at)) throw new Error('completed_atはYYYY-MM-DD形式で指定してください');
+  if (task.status !== 'done' && task.completed_at) throw new Error('completed_atはstatusがdoneのTaskだけに指定できます');
   if (task.requirement && !/^REQ-\d{4}$/.test(task.requirement)) throw new Error('requirementはREQ-0000形式で指定してください');
   for (const field of ['start', 'due']) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);
@@ -67,6 +69,12 @@ export function progressForTask(task) {
     return { value: Math.round((completed / checks.length) * 100), estimated: false, completed, total: checks.length };
   }
   return { value: ({ backlog: 0, ready: 0, doing: 50, review: 90 }[task.status] ?? 0), estimated: true, completed: 0, total: 0 };
+}
+
+function todayInJapan() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts();
+  const value = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
 }
 
 function dateOffset(date, days) {
@@ -155,6 +163,13 @@ export async function listTasks(root) {
   return results;
 }
 
+export function sortTasksForBoard(tasks) {
+  const active = tasks.filter((task) => task.status !== 'done');
+  const completed = tasks.filter((task) => task.status === 'done').sort((a, b) =>
+    (b.completed_at || '').localeCompare(a.completed_at || '') || b.id.localeCompare(a.id));
+  return [...active, ...completed];
+}
+
 export async function readTask(root, id) {
   const parsed = parseMarkdown(await fs.readFile(taskPath(root, id), 'utf8'));
   validateTask(parsed.data);
@@ -194,6 +209,8 @@ export async function updateTask(root, id, changes) {
   delete data.frontend_repo;
   delete data.backend_repo;
   for (const key of allowed) if (key in changes) data[key] = String(changes[key] ?? '').trim();
+  if (data.status === 'done' && existing.status !== 'done') data.completed_at = todayInJapan();
+  if (data.status !== 'done') data.completed_at = '';
   const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
   validateTask(data);
   // 担当者を変更するときだけマスタと照合する。担当者を変えない更新は、マスタ未登録の値でも失敗させない。
@@ -247,8 +264,10 @@ export async function createTask(root, input) {
     status: choose(input.status, 'backlog'),
     owner: text(input.owner),
     priority: choose(input.priority, 'medium'), target_repo: choose(text(input.target_repo), 'common'),
+    completed_at: '',
     start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement
   };
+  if (data.status === 'done') data.completed_at = todayInJapan();
   validateTask({ id: 'EPF-0000', ...data });
   const owners = await requireOwners(root);
   if (!owners.includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
@@ -278,11 +297,11 @@ export async function generateWbs(root, today) {
   const escape = (value) => String(value || '').replaceAll('|', '\\|').replaceAll('\n', ' ');
   const lines = [
     '# WBS', '', '> このファイルは `tasks/*.md` から生成される派生Viewです。直接編集しないでください。', '',
-    '| ID | Task | Status | Owner | Priority | Target repo | Start | Due | Progress | Schedule | Dependencies | Requirement |',
-    '|---|---|---|---|---|---|---|---|---|---|---|---|',
+    '| ID | Task | Status | Completed at | Owner | Priority | Target repo | Start | Due | Progress | Schedule | Dependencies | Requirement |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...tasks.map((task) => {
       const item = ganttById.get(task.id);
-      return `| ${task.id} | ${escape(task.title)} | ${task.status} | ${escape(task.owner)} | ${task.priority} | ${task.target_repo} | ${task.start || '-'} | ${task.due || '-'} | ${item.progress.value}%${item.progress.estimated ? ' (推定)' : ''} | ${item.scheduleStatus} | ${item.dependencies.join(', ') || '-'} | ${task.requirement || '-'} |`;
+      return `| ${task.id} | ${escape(task.title)} | ${task.status} | ${task.completed_at || '-'} | ${escape(task.owner)} | ${task.priority} | ${task.target_repo} | ${task.start || '-'} | ${task.due || '-'} | ${item.progress.value}%${item.progress.estimated ? ' (推定)' : ''} | ${item.scheduleStatus} | ${item.dependencies.join(', ') || '-'} | ${task.requirement || '-'} |`;
     }), ''
   ];
   await fs.writeFile(path.join(root, 'views', 'wbs.md'), lines.join('\n'), 'utf8');

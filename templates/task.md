@@ -2,6 +2,7 @@
 id: EPF-xxxx
 title:
 status: backlog
+completed_at:
 owner: unassigned
 priority: medium
 target_repo: common

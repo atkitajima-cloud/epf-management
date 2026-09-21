@@ -71,7 +71,7 @@ function renderCard(task) {
     <article class="task-card" draggable="true" tabindex="0" data-id="${task.id}" aria-label="${escapeHtml(task.title)}">
       <div class="card-top"><span class="task-id">${task.id}</span><span class="card-badges"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span><span class="priority ${task.priority}">${task.priority}</span></span></div>
       <div class="card-title">${escapeHtml(task.title)}</div>
-      <div class="card-meta"><span class="owner">◉ ${escapeHtml(task.owner)}</span><span>${task.due ? `◷ ${task.due.slice(5)}` : '期限なし'}</span></div>
+      <div class="card-meta"><span class="owner">◉ ${escapeHtml(task.owner)}</span><span>${task.status === 'done' ? `完了 ${task.completed_at?.slice(5) || '日付不明'}` : task.due ? `◷ ${task.due.slice(5)}` : '期限なし'}</span></div>
     </article>`;
 }
 
