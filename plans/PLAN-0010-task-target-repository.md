@@ -16,7 +16,7 @@ EPF ManagementのTaskについて、担当するリポジトリ、または複�
 
 - `app/lib/markdown.js` のFront Matter直列化、更新、Task作成、検証を `target_repo` に対応させる。
 - 作成・編集ダイアログに対象リポジトリの選択欄を追加する。
-- Kanbanとガントに対象リポジトリを表示し、対象リポジトリで絞り込めるようにする。
+- Kanbanとガントに対象リポジトリを表示し、対象リポジトリで絞り込めるようにする。Kanbanカードでは、担当者・期限と並ぶメタ情報として `対象: epf-backend` の形式で常時表示する。
 - `tasks/*.md` の既存データを移行する。
 - Markdown I/O、Task作成・更新、Kanban・ガント表示の自動テストを追加・更新する。
 
