@@ -12,6 +12,8 @@
 - Context → Requirement → Task → Planの関係を維持する。
 - WBSは `tasks/*.md` から生成する派生Viewであり、正本として編集しない。
 - ガントチャートも `tasks/*.md` から生成する派生Viewであり、表示用データを正本として保存しない。
+- `epf-project` のExecPlanに関連するTaskは、本文の「関連」からExecPlanへリンクする。Taskを `review` または `done` にするときは、実施内容と検証結果がExecPlanにも記録されていることを確認する。
+- TaskとExecPlanの同期ルールは `../epf-project/docs/design-docs/task-execplan-sync.md` を参照する。
 - 事実と推測・提案を明確に分ける。
 
 ## AIの安全性
