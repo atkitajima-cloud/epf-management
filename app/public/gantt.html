@@ -36,6 +36,11 @@
     <section id="dependencyOrderWarning" class="warnings" hidden><h3>依存関係の確認</h3><ul></ul></section>
     <section id="warnings" class="warnings" hidden><h3>日程と依存関係の確認</h3><ul></ul></section>
   </main>
+  <dialog id="taskDialog" class="gantt-task-dialog">
+    <div class="dialog-heading"><div><span id="dialogTaskId" class="task-id"></span><h2 id="dialogTaskTitle">Task詳細</h2></div><button type="button" id="closeDialog" class="icon-button" aria-label="閉じる">×</button></div>
+    <dl id="taskDetail" class="task-detail"></dl>
+    <div class="dialog-actions"><a id="editInKanban" class="button secondary" href="/">Kanbanで編集</a><button type="button" id="closeDialogButton" class="button primary">閉じる</button></div>
+  </dialog>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/gantt.js"></script>
 </body>

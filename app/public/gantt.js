@@ -4,6 +4,7 @@ const TIMELINE_LEFT = 670;
 const state = { data: null, scale: 'day', filter: { owner: '', status: 'not_done', targetRepo: '', requirement: '', schedule: '' } };
 const labels = { done: '完了', overdue: '期限超過', start_late: '着手遅れ', blocked: '依存待ち', at_risk: '要注意', on_track: '予定どおり', unscheduled: '日程未設定', invalid: '日程矛盾' };
 const repositoryLabels = { 'epf-project': 'project', 'epf-management': 'management', 'epf-backend': 'backend', 'epf-frontend': 'frontend', common: 'common' };
+const statusLabels = { backlog: 'Backlog', ready: 'Ready', doing: 'Doing', review: 'Review', done: 'Done' };
 
 async function api(url) {
   const response = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -100,6 +101,27 @@ function renderDependencyOrderWarning(unresolvedTaskIds) {
   if (!unresolvedTaskIds.length) return;
   section.querySelector('ul').innerHTML = `<li>循環依存またはその後続のため、依存順に並べられないTaskがあります: <b>${escapeHtml(unresolvedTaskIds.join(', '))}</b></li>`;
 }
+async function openTask(id) {
+  try {
+    const { task } = await api(`/api/tasks/${id}`);
+    document.querySelector('#dialogTaskId').textContent = task.id;
+    document.querySelector('#dialogTaskTitle').textContent = task.title;
+    document.querySelector('#editInKanban').href = `/?task=${encodeURIComponent(task.id)}`;
+    const values = [
+      ['状態', statusLabels[task.status] || task.status],
+      ['担当者', task.owner],
+      ['対象リポジトリ', repositoryLabels[task.target_repo] || task.target_repo],
+      ['優先度', task.priority],
+      ['開始日', task.start || '未設定'],
+      ['期限', task.due || '未設定'],
+      ['先行Task', task.depends_on || 'なし'],
+      ['Requirement', task.requirement || '未設定'],
+      ['本文', task.body || '本文なし']
+    ];
+    document.querySelector('#taskDetail').innerHTML = values.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`).join('');
+    document.querySelector('#taskDialog').showModal();
+  } catch (error) { toast(error.message); }
+}
 function renderGantt() {
   const dependencyOrder = orderTasksByDependency(filteredTasks());
   const tasks = dependencyOrder.tasks;
@@ -124,7 +146,7 @@ function renderGantt() {
   document.querySelector('#gantt').innerHTML = `<div class="gantt-inner"><div class="table-head"><div>Task</div><div>担当者</div><div>対象</div><div>進捗</div><div>判定</div><div class="timeline-head" style="width:${timelineWidth}px">${grid}</div></div><div class="rows">${rows}</div><div class="today-overlay" style="left:${TIMELINE_LEFT}px;width:${timelineWidth}px">${todayLine}</div></div>`;
   renderDependencyLayer(tasks, timelineWidth);
   renderDependencyOrderWarning(dependencyOrder.unresolvedTaskIds);
-  document.querySelectorAll('[data-id]').forEach((element) => element.addEventListener('click', () => window.location.href = `/?task=${element.dataset.id}`));
+  document.querySelectorAll('[data-id]').forEach((element) => element.addEventListener('click', () => openTask(element.dataset.id)));
 }
 function renderWarnings() {
   const section = document.querySelector('#warnings');
@@ -149,4 +171,6 @@ for (const [id, field] of [['#ownerFilter', 'owner'], ['#statusFilter', 'status'
 }
 document.querySelectorAll('[data-scale]').forEach((button) => button.addEventListener('click', () => { state.scale = button.dataset.scale; document.querySelectorAll('[data-scale]').forEach((item) => item.classList.toggle('active', item === button)); renderGantt(); scrollToday(); }));
 document.querySelector('#todayButton').addEventListener('click', scrollToday);
+document.querySelector('#closeDialog').addEventListener('click', () => document.querySelector('#taskDialog').close());
+document.querySelector('#closeDialogButton').addEventListener('click', () => document.querySelector('#taskDialog').close());
 load();
