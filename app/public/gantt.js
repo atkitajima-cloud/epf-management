@@ -21,7 +21,7 @@ function monday(value) { const date = new Date(`${value}T00:00:00Z`); const day 
 
 function fillSelect(id, values, current) {
   const select = document.querySelector(id);
-  const extra = id === '#scheduleFilter' ? '<option value="risk">要注意（全種別）</option>' : id === '#statusFilter' ? '<option value="not_done">完了以外</option><option value="active">進行中（Doing / Review）</option>' : '';
+  const extra = id === '#scheduleFilter' ? '<option value="risk">要注意（全種別）</option>' : id === '#statusFilter' ? '<option value="not_done">未完了</option><option value="active">進行中（Doing / Review）</option>' : '';
   select.innerHTML = `<option value="">すべて</option>${extra}${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(labels[value] || value)}</option>`).join('')}`;
   select.value = current;
 }
@@ -41,6 +41,11 @@ function filteredTasks() {
     (!state.filter.requirement || task.requirement === state.filter.requirement) &&
     (!state.filter.schedule || (state.filter.schedule === 'risk' ? ['at_risk', 'start_late', 'blocked'].includes(task.scheduleStatus) : task.scheduleStatus === state.filter.schedule))
   );
+}
+function rangeForTasks(tasks) {
+  const dates = tasks.filter((task) => task.start && task.due && task.start <= task.due).flatMap((task) => [task.start, task.due]);
+  if (!dates.length) return { start: state.data.today, end: addDays(state.data.today, 30) };
+  return { start: [...dates, state.data.today].sort()[0], end: [...dates, state.data.today].sort().at(-1) };
 }
 function summaryCard(key, label, value, status = '') {
   return `<button class="summary-card ${status}" data-summary="${key}"><span>${label}</span><strong>${value}</strong><small>該当Taskを表示</small></button>`;
@@ -123,9 +128,10 @@ async function openTask(id) {
   } catch (error) { toast(error.message); }
 }
 function renderGantt() {
-  const dependencyOrder = orderTasksByDependency(filteredTasks());
+  const visibleTasks = filteredTasks();
+  const dependencyOrder = orderTasksByDependency(visibleTasks);
   const tasks = dependencyOrder.tasks;
-  const timeline = buildTimeline(state.data.range);
+  const timeline = buildTimeline(rangeForTasks(visibleTasks));
   const columnWidth = state.scale === 'week' ? 116 : 38;
   const timelineWidth = timeline.units.length * columnWidth;
   const todayIndex = Math.floor((dayNumber(state.data.today) - dayNumber(timeline.start)) / timeline.step);
@@ -154,7 +160,7 @@ function renderWarnings() {
   section.querySelector('ul').innerHTML = state.data.warnings.map((warning) => `<li><b>${escapeHtml(warning.id)}</b> ${escapeHtml(warning.message)}</li>`).join('');
 }
 function scrollToday() {
-  const timeline = buildTimeline(state.data.range);
+  const timeline = buildTimeline(rangeForTasks(filteredTasks()));
   const index = Math.floor((dayNumber(state.data.today) - dayNumber(timeline.start)) / timeline.step);
   document.querySelector('#gantt').scrollLeft = Math.max(0, TIMELINE_LEFT + index * (state.scale === 'week' ? 116 : 38) - 250);
 }
