@@ -141,7 +141,7 @@ export function buildGanttData(tasks, today = new Date().toISOString().slice(0, 
   const count = (status) => rows.filter((task) => task.scheduleStatus === status).length;
   return {
     generatedAt: new Date().toISOString(), today, range, warnings,
-    summary: { total: rows.length, inProgress: rows.filter((task) => ['doing', 'review'].includes(task.status)).length, overdue: count('overdue'), atRisk: count('at_risk') + count('start_late') + count('blocked'), unscheduled: count('unscheduled') + count('invalid') },
+    summary: { total: rows.length, unfinished: rows.filter((task) => task.status !== 'done').length, inProgress: rows.filter((task) => ['doing', 'review'].includes(task.status)).length, overdue: count('overdue'), atRisk: count('at_risk') + count('start_late') + count('blocked'), unscheduled: count('unscheduled') + count('invalid') },
     tasks: rows
   };
 }

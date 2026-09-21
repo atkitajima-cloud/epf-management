@@ -53,14 +53,14 @@ function summaryCard(key, label, value, status = '') {
 function renderSummary() {
   const { summary } = state.data;
   document.querySelector('#summary').innerHTML = [
-    summaryCard('', '全Task', summary.total), summaryCard('active', '進行中', summary.inProgress),
+    summaryCard('not_done', '未完了', summary.unfinished), summaryCard('', '全Task', summary.total), summaryCard('active', '進行中', summary.inProgress),
     summaryCard('overdue', '期限超過', summary.overdue, 'overdue'), summaryCard('risk', '要注意', summary.atRisk, 'at_risk'),
     summaryCard('unscheduled', '日程未設定', summary.unscheduled, 'unscheduled')
   ].join('');
   document.querySelectorAll('[data-summary]').forEach((button) => button.addEventListener('click', () => {
     const key = button.dataset.summary;
     state.filter.schedule = key === 'overdue' ? 'overdue' : key === 'unscheduled' ? 'unscheduled' : key === 'risk' ? 'risk' : '';
-    state.filter.status = key === 'active' ? 'active' : '';
+    state.filter.status = key === 'active' ? 'active' : key === 'not_done' ? 'not_done' : '';
     updateFilters(); renderGantt();
   }));
 }

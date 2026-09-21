@@ -64,6 +64,7 @@ test('ガント用の進捗率と遅延判定をTask正本から生成できる'
   assert.equal(gantt.tasks.find((task) => task.id === 'EPF-0001').scheduleStatus, 'done');
   assert.equal(gantt.tasks.find((task) => task.id === 'EPF-0002').scheduleStatus, 'overdue');
   assert.equal(gantt.tasks.find((task) => task.id === 'EPF-0003').scheduleStatus, 'unscheduled');
+  assert.equal(gantt.summary.unfinished, 2);
   assert.match(gantt.warnings[0].message, /存在しない先行Task/);
 });
 async function makeRoot(context) {
