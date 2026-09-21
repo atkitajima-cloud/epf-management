@@ -129,9 +129,10 @@ function ownerOptions(owners, current) {
 
 async function openTask(id) {
   try {
-    const [{ task }, { owners }] = await Promise.all([api(`/api/tasks/${id}`), api('/api/owners')]);
+    const [{ task, vscodeUri }, { owners }] = await Promise.all([api(`/api/tasks/${id}`), api('/api/owners')]);
     taskForm.elements.owner.innerHTML = ownerOptions(owners, task.owner);
     document.querySelector('#dialogTaskId').textContent = task.id;
+    document.querySelector('#openTaskInVscode').href = vscodeUri;
     for (const field of ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'body']) {
       taskForm.elements[field].value = task[field] || '';
     }

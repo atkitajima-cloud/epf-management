@@ -75,3 +75,11 @@ Task詳細に表示するリンク先は常に `tasks/{Task ID}.md` とする。
 ## 未決事項
 
 なし。通常版VS Codeを前提とし、VS Code Insiders対応が必要になった場合は別Taskで扱う。
+
+## 実施結果
+
+- `GET /api/tasks/:id` が、有効なTask IDから生成した `vscode://file/...` URLを返すようにした。任意パスは受け取らず、既存のTask ID検証と `tasks/` 配下の制約を通す。
+- Task詳細に `VS CodeでTaskを開く` を追加した。カードクリックや詳細表示だけでは外部アプリを起動せず、利用者の明示クリック時だけURLを開く。
+- Task Markdownと既存の相対リンクは変更していない。READMEへ利用前提を追記した。
+- `npm test` は32件すべて成功した。検証用サーバーの `GET /api/tasks/EPF-0026` で、`vscode://file/C:/dev/epf-poc/epf-management/tasks/EPF-0026.md` が返ることを確認した。
+- ブラウザからVS Codeを起動する最終確認は、OSの外部アプリ確認を伴うため利用者レビューで実施する。

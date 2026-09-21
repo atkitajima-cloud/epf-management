@@ -73,6 +73,7 @@ $env:PORT=5000; npm start
 - 状態変更: カードを別の列へDrag & Dropすると、対象Markdownの `status` が更新されます。
 - 詳細編集: カードをクリックし、Front Matterと本文を編集して保存します。
 - 新規Task: ボード見出しの「新規Task」からTask Markdownを作成します。
+- VS Codeで確認: Task詳細の「VS CodeでTaskを開く」を押すと、該当する `tasks/EPF-xxxx.md` をVS Codeで開きます。Task本文の相対リンクからExecPlanや設計文書を確認します。通常版VS Codeが必要で、ブラウザが外部アプリ起動の確認を表示する場合があります。
 - 変更履歴: 右ペインにGitの直近20件を表示します。Taskの追加や主要なFront Matter変更は内容を要約し、↻で再取得できます。
 - WBS: ヘッダーの「WBSを生成」で、既存Taskから派生Viewの `views/wbs.md` を再生成します。
 - ガント: ヘッダーの「ガント」または `http://localhost:4173/gantt.html` から開きます。開始日・期限・進捗・依存関係・日程判定を確認し、日程の編集はTask詳細で行います。

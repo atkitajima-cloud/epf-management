@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const STATUSES = ['backlog', 'ready', 'doing', 'review', 'done'];
 export const PRIORITIES = ['low', 'medium', 'high'];
@@ -148,6 +149,14 @@ export function buildGanttData(tasks, today = new Date().toISOString().slice(0, 
 function taskPath(root, id) {
   if (!/^EPF-\d{4}$/.test(id)) throw new Error('不正なTask IDです');
   return path.join(root, 'tasks', `${id}.md`);
+}
+
+// Task ID以外のパスを受け取らず、ローカルのTask MarkdownだけをVS Code URLへ変換する。
+export function vscodeUriForTask(root, id) {
+  const tasksDir = path.resolve(root, 'tasks');
+  const target = path.resolve(taskPath(root, id));
+  if (!target.startsWith(`${tasksDir}${path.sep}`)) throw new Error('Taskファイルがtasks配下にありません');
+  return `vscode://file${pathToFileURL(target).pathname}`;
 }
 
 export async function listTasks(root) {

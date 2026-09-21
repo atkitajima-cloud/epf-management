@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, updateTask } from './lib/markdown.js';
+import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, updateTask, vscodeUriForTask } from './lib/markdown.js';
 import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest } from './lib/git.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -50,7 +50,10 @@ async function handleApi(request, response, url) {
   }
   const taskMatch = url.pathname.match(/^\/api\/tasks\/(EPF-\d{4})$/);
   if (request.method === 'GET' && taskMatch) {
-    return sendJson(response, 200, { task: await readTask(root, taskMatch[1]) });
+    return sendJson(response, 200, {
+      task: await readTask(root, taskMatch[1]),
+      vscodeUri: vscodeUriForTask(root, taskMatch[1])
+    });
   }
   if (request.method === 'PUT' && taskMatch) {
     return sendJson(response, 200, { task: await updateTask(root, taskMatch[1], await readJson(request)) });

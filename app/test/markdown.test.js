@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, updateTask, validateTask } from '../lib/markdown.js';
+import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -15,6 +15,14 @@ test('Front Matterと本文を往復できる', () => {
   const parsed = parseMarkdown(source);
   assert.deepEqual(parsed.data, sample);
   assert.match(parsed.body, /完了条件/);
+});
+
+test('Task MarkdownだけをVS Code URLへ変換できる', () => {
+  const uri = vscodeUriForTask('C:\\workspace with space\\epf-management', 'EPF-0001');
+  assert.match(uri, /^vscode:\/\/file\//);
+  assert.match(uri, /epf-management\/tasks\/EPF-0001\.md$/);
+  assert.match(uri, /workspace%20with%20space/);
+  assert.throws(() => vscodeUriForTask('C:\\workspace\\epf-management', '../README'), /不正なTask ID/);
 });
 
 test('Task作成・status更新・WBS生成がMarkdownへ反映される', async (context) => {
