@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, updateTask } from '../lib/markdown.js';
+import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, updateTask, validateTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -126,6 +126,7 @@ test('完了日を自動記録し、完了Taskを新しい順に並べる', asyn
   assert.equal(reopened.completed_at, '');
   const recompleted = await updateTask(root, 'EPF-0001', { status: 'done' });
   assert.match(recompleted.completed_at, /^\d{4}-\d{2}-\d{2}$/);
+  assert.throws(() => validateTask({ ...sample, status: 'done', completed_at: '' }), /completed_at/);
   const sorted = sortTasksForBoard([
     { ...sample, id: 'EPF-0001', status: 'done', completed_at: '2026-09-20' },
     { ...sample, id: 'EPF-0002', status: 'done', completed_at: '2026-09-21' },

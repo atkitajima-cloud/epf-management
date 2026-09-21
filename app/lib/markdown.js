@@ -53,6 +53,7 @@ export function validateTask(task) {
   if (!TARGET_REPOSITORIES.includes(task.target_repo)) throw new Error(`target_repoは${TARGET_REPOSITORIES.join(', ')}のいずれかである必要があります`);
   if (task.completed_at && !/^\d{4}-\d{2}-\d{2}$/.test(task.completed_at)) throw new Error('completed_atはYYYY-MM-DD形式で指定してください');
   if (task.status !== 'done' && task.completed_at) throw new Error('completed_atはstatusがdoneのTaskだけに指定できます');
+  if (task.status === 'done' && !task.completed_at) throw new Error('statusがdoneのTaskにはcompleted_atが必要です');
   if (task.requirement && !/^REQ-\d{4}$/.test(task.requirement)) throw new Error('requirementはREQ-0000形式で指定してください');
   for (const field of ['start', 'due']) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);

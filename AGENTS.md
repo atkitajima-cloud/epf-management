@@ -28,6 +28,7 @@
 
 - 大きな変更の前に `plans/` のPlanを作成または更新する。
 - Taskの追加、編集、状態変更、日程・担当・依存関係の変更は、`tasks/*.md` とGit差分で追跡する。これらのTaskデータ変更だけを理由にPlanを作成する必要はない。
+- TaskをMarkdownで直接 `done` に変更する場合は、同時に日本時間の当日を `completed_at`（`YYYY-MM-DD`）へ記録する。`done` 以外へ戻す場合は `completed_at` を空にする。
 - Git履歴とユーザーの未コミット変更を尊重する。
 - commit / pushを自動実行しない。
 - 変更後はMarkdown I/O、API、主要UIフローを検証する。
