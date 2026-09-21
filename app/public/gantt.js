@@ -1,6 +1,6 @@
 import { buildDependencyPaths, orderTasksByDependency } from './gantt-dependencies.js';
 
-const TIMELINE_LEFT = 670;
+const TIMELINE_LEFT = 740;
 const state = { data: null, scale: 'day', filter: { owner: '', status: 'not_done', targetRepo: '', requirement: '', schedule: '' } };
 const labels = { done: '完了', overdue: '期限超過', start_late: '着手遅れ', blocked: '依存待ち', at_risk: '要注意', on_track: '予定どおり', unscheduled: '日程未設定', invalid: '日程矛盾' };
 const repositoryLabels = { 'epf-project': 'project', 'epf-management': 'management', 'epf-backend': 'backend', 'epf-frontend': 'frontend', common: 'common' };
@@ -139,11 +139,11 @@ function renderGantt() {
     }
     const dependency = task.dependencies.length ? `<small>先行: ${escapeHtml(task.dependencies.join(', '))}</small>` : '';
     const warnings = task.warnings.length ? `<small class="row-warning">${escapeHtml(task.warnings.join(' / '))}</small>` : '';
-    return `<div class="task-row" data-row-id="${task.id}"><button class="task-cell" data-id="${task.id}"><b>${task.id}</b><span>${escapeHtml(task.title)}</span>${dependency}${warnings}</button><div class="owner-cell">${escapeHtml(task.owner)}</div><div class="repository-cell"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span></div><div class="progress-cell">${task.progress.value}%${task.progress.estimated ? '*' : ''}</div><div class="status-cell"><span class="status-pill ${task.scheduleStatus}">${labels[task.scheduleStatus]}</span></div><div class="timeline-row" style="width:${timelineWidth}px;background-size:${columnWidth}px 100%">${bar}</div></div>`;
+    return `<div class="task-row" data-row-id="${task.id}"><button class="task-cell" data-id="${task.id}"><b>${task.id}</b><span>${escapeHtml(task.title)}</span>${dependency}${warnings}</button><div class="owner-cell">${escapeHtml(task.owner)}</div><div class="repository-cell"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span></div><div class="progress-cell">${task.progress.value}%${task.progress.estimated ? '*' : ''}</div><div class="task-status-cell"><span class="task-status ${task.status}">${statusLabels[task.status] || task.status}</span></div><div class="status-cell"><span class="status-pill ${task.scheduleStatus}">${labels[task.scheduleStatus]}</span></div><div class="timeline-row" style="width:${timelineWidth}px;background-size:${columnWidth}px 100%">${bar}</div></div>`;
   }).join('');
   const todayLine = todayIndex >= 0 && todayIndex < timeline.units.length ? `<div class="today-line" style="left:${todayIndex * columnWidth}px"><span>今日</span></div>` : '';
   document.querySelector('#emptyState').hidden = tasks.length > 0;
-  document.querySelector('#gantt').innerHTML = `<div class="gantt-inner"><div class="table-head"><div>Task</div><div>担当者</div><div>対象</div><div>進捗</div><div>判定</div><div class="timeline-head" style="width:${timelineWidth}px">${grid}</div></div><div class="rows">${rows}</div><div class="today-overlay" style="left:${TIMELINE_LEFT}px;width:${timelineWidth}px">${todayLine}</div></div>`;
+  document.querySelector('#gantt').innerHTML = `<div class="gantt-inner"><div class="table-head"><div>Task</div><div>担当者</div><div>対象</div><div>進捗</div><div>状態</div><div>判定</div><div class="timeline-head" style="width:${timelineWidth}px">${grid}</div></div><div class="rows">${rows}</div><div class="today-overlay" style="left:${TIMELINE_LEFT}px;width:${timelineWidth}px">${todayLine}</div></div>`;
   renderDependencyLayer(tasks, timelineWidth);
   renderDependencyOrderWarning(dependencyOrder.unresolvedTaskIds);
   document.querySelectorAll('[data-id]').forEach((element) => element.addEventListener('click', () => openTask(element.dataset.id)));
