@@ -13,7 +13,7 @@ test('表示中かつ日程設定済みの依存関係だけを矢印線にす�
     ['EPF-0002', { startX: 80, endX: 120, centerY: 81 }]
   ]);
   assert.deepEqual(buildDependencyPaths(tasks, bars), [{
-    sourceId: 'EPF-0001', targetId: 'EPF-0002', d: 'M 50 20 H 92 V 81 H 80'
+    sourceId: 'EPF-0001', targetId: 'EPF-0002', d: 'M 50 20 H 87 V 81 H 75'
   }]);
 });
 
@@ -27,6 +27,6 @@ test('先行Taskが後続Taskより下にあっても矢印線を作る', () => 
     ['EPF-0002', { startX: 160, endX: 200, centerY: 25 }]
   ]);
   assert.deepEqual(buildDependencyPaths(tasks, bars), [{
-    sourceId: 'EPF-0001', targetId: 'EPF-0002', d: 'M 140 90 H 172 V 25 H 160'
+    sourceId: 'EPF-0001', targetId: 'EPF-0002', d: 'M 140 90 H 167 V 25 H 155'
   }]);
 });
