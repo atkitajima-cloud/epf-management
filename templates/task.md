@@ -4,13 +4,12 @@ title:
 status: backlog
 owner: unassigned
 priority: medium
+target_repo: common
 start:
 due:
 depends_on:
 requirement: REQ-xxxx
 plan:
-frontend_repo:
-backend_repo:
 ---
 
 # 背景

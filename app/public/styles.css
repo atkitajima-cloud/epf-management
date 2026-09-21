@@ -52,11 +52,18 @@ button { cursor: pointer; }
 .task-card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .task-card.dragging { opacity: .45; }
 .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-badges { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
 .task-id { color: #5e6190; font-size: 11px; font-weight: 750; letter-spacing: .04em; }
 .priority { padding: 3px 6px; border-radius: 5px; font-size: 10px; font-weight: 750; text-transform: uppercase; }
 .priority.high { color: #9f2c2c; background: #ffebeb; }
 .priority.medium { color: #925c0a; background: #fff3d9; }
 .priority.low { color: #39715a; background: #e6f5ee; }
+.repository { padding: 3px 6px; border-radius: 5px; font-size: 10px; font-weight: 750; }
+.repository.epf-project { color: #6740a5; background: #f0e9ff; }
+.repository.epf-management { color: #267757; background: #e4f5ed; }
+.repository.epf-backend { color: #2869b4; background: #e4f0ff; }
+.repository.epf-frontend { color: #9a5e0a; background: #fff0d9; }
+.repository.common { color: #667085; background: #edf0f5; }
 .card-title { margin: 9px 0 12px; font-size: 13px; line-height: 1.45; font-weight: 650; }
 .card-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }
 .owner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

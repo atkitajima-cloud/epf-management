@@ -3,7 +3,8 @@ import path from 'node:path';
 
 export const STATUSES = ['backlog', 'ready', 'doing', 'review', 'done'];
 export const PRIORITIES = ['low', 'medium', 'high'];
-export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority'];
+export const TARGET_REPOSITORIES = ['epf-project', 'epf-management', 'epf-backend', 'epf-frontend', 'common'];
+export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority', 'target_repo'];
 
 function parseScalar(value) {
   const trimmed = value.trim();
@@ -34,8 +35,9 @@ function formatScalar(value) {
 }
 
 export function serializeMarkdown(data, body) {
-  const preferred = ['id', 'title', 'status', 'owner', 'priority', 'start', 'due', 'depends_on', 'requirement', 'plan', 'frontend_repo', 'backend_repo'];
-  const keys = [...preferred.filter((key) => key in data), ...Object.keys(data).filter((key) => !preferred.includes(key))];
+  const preferred = ['id', 'title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
+  const legacy = new Set(['frontend_repo', 'backend_repo']);
+  const keys = [...preferred.filter((key) => key in data), ...Object.keys(data).filter((key) => !preferred.includes(key) && !legacy.has(key))];
   return `---\n${keys.map((key) => data[key] === '' ? `${key}:` : `${key}: ${formatScalar(data[key])}`).join('\n')}\n---\n\n${String(body ?? '').trim()}\n`;
 }
 
@@ -48,6 +50,7 @@ export function validateTask(task) {
   if (!/^EPF-\d{4}$/.test(task.id)) throw new Error('idはEPF-0000形式で指定してください');
   if (!STATUSES.includes(task.status)) throw new Error(`statusは${STATUSES.join(', ')}のいずれかです`);
   if (!PRIORITIES.includes(task.priority)) throw new Error(`priorityは${PRIORITIES.join(', ')}のいずれかです`);
+  if (!TARGET_REPOSITORIES.includes(task.target_repo)) throw new Error(`target_repoは${TARGET_REPOSITORIES.join(', ')}のいずれかである必要があります`);
   if (task.requirement && !/^REQ-\d{4}$/.test(task.requirement)) throw new Error('requirementはREQ-0000形式で指定してください');
   for (const field of ['start', 'due']) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);
@@ -185,9 +188,11 @@ function ownerNotFoundMessage(owner) {
 
 export async function updateTask(root, id, changes) {
   const existing = await readTask(root, id);
-  const allowed = ['title', 'status', 'owner', 'priority', 'start', 'due', 'depends_on', 'requirement', 'plan', 'frontend_repo', 'backend_repo'];
+  const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
   const data = { ...existing };
   delete data.body;
+  delete data.frontend_repo;
+  delete data.backend_repo;
   for (const key of allowed) if (key in changes) data[key] = String(changes[key] ?? '').trim();
   const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
   validateTask(data);
@@ -241,7 +246,7 @@ export async function createTask(root, input) {
     title: text(input.title),
     status: choose(input.status, 'backlog'),
     owner: text(input.owner),
-    priority: choose(input.priority, 'medium'),
+    priority: choose(input.priority, 'medium'), target_repo: choose(text(input.target_repo), 'common'),
     start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement
   };
   validateTask({ id: 'EPF-0000', ...data });
@@ -273,11 +278,11 @@ export async function generateWbs(root, today) {
   const escape = (value) => String(value || '').replaceAll('|', '\\|').replaceAll('\n', ' ');
   const lines = [
     '# WBS', '', '> このファイルは `tasks/*.md` から生成される派生Viewです。直接編集しないでください。', '',
-    '| ID | Task | Status | Owner | Priority | Start | Due | Progress | Schedule | Dependencies | Requirement |',
-    '|---|---|---|---|---|---|---|---|---|---|---|',
+    '| ID | Task | Status | Owner | Priority | Target repo | Start | Due | Progress | Schedule | Dependencies | Requirement |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...tasks.map((task) => {
       const item = ganttById.get(task.id);
-      return `| ${task.id} | ${escape(task.title)} | ${task.status} | ${escape(task.owner)} | ${task.priority} | ${task.start || '-'} | ${task.due || '-'} | ${item.progress.value}%${item.progress.estimated ? ' (推定)' : ''} | ${item.scheduleStatus} | ${item.dependencies.join(', ') || '-'} | ${task.requirement || '-'} |`;
+      return `| ${task.id} | ${escape(task.title)} | ${task.status} | ${escape(task.owner)} | ${task.priority} | ${task.target_repo} | ${task.start || '-'} | ${task.due || '-'} | ${item.progress.value}%${item.progress.estimated ? ' (推定)' : ''} | ${item.scheduleStatus} | ${item.dependencies.join(', ') || '-'} | ${task.requirement || '-'} |`;
     }), ''
   ];
   await fs.writeFile(path.join(root, 'views', 'wbs.md'), lines.join('\n'), 'utf8');

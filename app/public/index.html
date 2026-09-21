@@ -68,6 +68,7 @@
         <label>状態<select name="status" required></select></label>
         <label>担当者<select name="owner" required></select></label>
         <label>優先度<select name="priority"><option>high</option><option>medium</option><option>low</option></select></label>
+        <label>対象リポジトリ<select name="target_repo" required><option value="epf-project">project</option><option value="epf-management">management</option><option value="epf-backend">backend</option><option value="epf-frontend">frontend</option><option value="common">common</option></select></label>
         <label>開始日<input name="start" type="date"></label>
         <label>期限<input name="due" type="date"></label>
         <label class="wide">先行Task<input name="depends_on" placeholder="EPF-0001, EPF-0002"></label>
@@ -96,6 +97,7 @@
         <label>状態<select name="status" required></select></label>
         <label>担当者<select name="owner" required></select></label>
         <label>優先度<select name="priority"><option>high</option><option selected>medium</option><option>low</option></select></label>
+        <label>対象リポジトリ<select name="target_repo" required><option value="epf-project">project</option><option value="epf-management">management</option><option value="epf-backend">backend</option><option value="epf-frontend">frontend</option><option value="common" selected>common</option></select></label>
         <label>開始日<input name="start" type="date"></label>
         <label>期限<input name="due" type="date"></label>
         <label class="wide">先行Task<input name="depends_on" placeholder="EPF-0001, EPF-0002"></label>

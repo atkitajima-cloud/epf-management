@@ -15,6 +15,9 @@ const statuses = [
   },
   { id: 'done', label: 'Done', color: '#3d9871', hint: '完了条件を満たした', description: '完了条件をすべて満たし、確認が済んだ。' }
 ];
+const repositoryLabels = {
+  'epf-project': 'project', 'epf-management': 'management', 'epf-backend': 'backend', 'epf-frontend': 'frontend', common: 'common'
+};
 
 const state = { tasks: [], draggingId: null };
 const board = document.querySelector('#board');
@@ -66,7 +69,7 @@ function renderBoard() {
 function renderCard(task) {
   return `
     <article class="task-card" draggable="true" tabindex="0" data-id="${task.id}" aria-label="${escapeHtml(task.title)}">
-      <div class="card-top"><span class="task-id">${task.id}</span><span class="priority ${task.priority}">${task.priority}</span></div>
+      <div class="card-top"><span class="task-id">${task.id}</span><span class="card-badges"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span><span class="priority ${task.priority}">${task.priority}</span></span></div>
       <div class="card-title">${escapeHtml(task.title)}</div>
       <div class="card-meta"><span class="owner">◉ ${escapeHtml(task.owner)}</span><span>${task.due ? `◷ ${task.due.slice(5)}` : '期限なし'}</span></div>
     </article>`;
@@ -127,7 +130,7 @@ async function openTask(id) {
     const [{ task }, { owners }] = await Promise.all([api(`/api/tasks/${id}`), api('/api/owners')]);
     taskForm.elements.owner.innerHTML = ownerOptions(owners, task.owner);
     document.querySelector('#dialogTaskId').textContent = task.id;
-    for (const field of ['title', 'status', 'owner', 'priority', 'start', 'due', 'depends_on', 'requirement', 'body']) {
+    for (const field of ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'body']) {
       taskForm.elements[field].value = task[field] || '';
     }
     document.querySelector('#saveStatus').textContent = '';
@@ -162,6 +165,7 @@ document.querySelector('#newTaskButton').addEventListener('click', async () => {
     createForm.elements.requirement.innerHTML = ['<option value=""></option>', ...requirements
       .map((item) => `<option value="${item.id}">${escapeHtml(item.id)} ${escapeHtml(item.title)}</option>`)].join('');
     createForm.reset();
+    createForm.elements.target_repo.value = 'common';
     createForm.elements.body.value = bodyTemplate;
     if (owners.includes('unassigned')) createForm.elements.owner.value = 'unassigned';
     document.querySelector('#createStatus').textContent = '';
@@ -189,7 +193,7 @@ document.querySelector('#cancelDialog').addEventListener('click', () => dialog.c
 
 const historyFieldLabels = {
   title: 'タイトル', status: '状態', owner: '担当者', priority: '優先度',
-  start: '開始日', due: '期限', requirement: 'Requirement', depends_on: '先行Task'
+  target_repo: '対象リポジトリ', start: '開始日', due: '期限', requirement: 'Requirement', depends_on: '先行Task'
 };
 
 function historyDate(value) {

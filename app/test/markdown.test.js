@@ -7,7 +7,7 @@ import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, 
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
-  priority: 'medium', start: '2026-09-20', due: '2026-09-30', depends_on: '', requirement: 'REQ-0001', plan: 'PLAN-0001'
+  priority: 'medium', target_repo: 'common', start: '2026-09-20', due: '2026-09-30', depends_on: '', requirement: 'REQ-0001', plan: 'PLAN-0001'
 };
 
 test('Front Matterと本文を往復できる', () => {
@@ -35,11 +35,13 @@ test('Task作成・status更新・WBS生成がMarkdownへ反映される', async
   const updated = await updateTask(root, 'EPF-0002', { status: 'doing', owner: 'agent' });
   assert.equal(updated.status, 'doing');
   assert.equal(updated.owner, 'agent');
+  assert.equal(updated.target_repo, 'common');
 
   const result = await generateWbs(root);
   assert.equal(result.taskCount, 2);
   const wbs = await fs.readFile(path.join(root, 'views', 'wbs.md'), 'utf8');
   assert.match(wbs, /EPF-0002/);
+  assert.match(wbs, /Target repo/);
   assert.match(wbs, /新しいTask/);
 });
 
@@ -76,6 +78,7 @@ test('画面からのTask作成は共通の雛形を使い、planを書かず、
   assert.doesNotMatch(source, /^plan:/m);
   const parsed = parseMarkdown(source);
   assert.equal(parsed.data.status, 'ready');
+  assert.equal(parsed.data.target_repo, 'common');
   assert.equal(parsed.body.trim(), '# 背景\n\n（未記入）\n\n# 目的\n\n（未記入）\n\n# 完了条件\n\n- [ ] \n- [ ] \n- [ ] \n\n# 関連\n\n（未記入）');
   const own = await createTask(root, { title: '本文あり', owner: 'tester', requirement: 'REQ-0001', body: '# 独自' });
   assert.equal(own.body, '# 独自');
@@ -90,6 +93,7 @@ test('画面からのTask作成は不正な入力を補完せず、ファイル�
     { ...valid, owner: '' },
     { ...valid, status: 'unknown' },
     { ...valid, priority: 'urgent' },
+    { ...valid, target_repo: 'unknown' },
     { ...valid, start: '2026/09/01' },
     { ...valid, start: '2026-09-10', due: '2026-09-01' },
     { ...valid, requirement: 'REQ-9999' },
@@ -98,6 +102,18 @@ test('画面からのTask作成は不正な入力を補完せず、ファイル�
   ];
   for (const input of cases) await assert.rejects(createTask(root, input), undefined, JSON.stringify(input));
   assert.equal((await listTasks(root)).length, 1);
+});
+
+test('対象リポジトリを作成・更新でき、旧repo項目は保存しない', async (context) => {
+  const root = await makeRoot(context);
+  const created = await createTask(root, { title: 'backend Task', owner: 'tester', target_repo: 'epf-backend' });
+  assert.equal(created.target_repo, 'epf-backend');
+  const updated = await updateTask(root, created.id, { target_repo: 'epf-frontend' });
+  assert.equal(updated.target_repo, 'epf-frontend');
+  const source = await fs.readFile(path.join(root, 'tasks', `${created.id}.md`), 'utf8');
+  assert.match(source, /^target_repo: epf-frontend$/m);
+  assert.doesNotMatch(source, /^(frontend_repo|backend_repo):/m);
+  await assert.rejects(updateTask(root, created.id, { target_repo: 'invalid' }), /target_repo/);
 });
 
 test('Requirementは空欄でTaskを作成でき、一覧・更新・WBSでも不正扱いにならない', async (context) => {
