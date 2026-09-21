@@ -8,7 +8,7 @@ export function buildDependencyPaths(tasks, bars) {
       const source = visible.get(sourceId);
       const sourceBar = bars.get(sourceId);
       if (!source || !sourceBar || sourceId === target.id) continue;
-      const targetX = targetBar.startX - 5;
+      const targetX = targetBar.startX - 14;
       const turnX = Math.max(sourceBar.endX + 12, targetX + 12);
       paths.push({
         sourceId,
