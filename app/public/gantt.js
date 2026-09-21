@@ -52,8 +52,9 @@ function summaryCard(key, label, value, status = '') {
 }
 function renderSummary() {
   const { summary } = state.data;
+  const unfinished = summary.unfinished ?? state.data.tasks.filter((task) => task.status !== 'done').length;
   document.querySelector('#summary').innerHTML = [
-    summaryCard('not_done', '未完了', summary.unfinished), summaryCard('', '全Task', summary.total), summaryCard('active', '進行中', summary.inProgress),
+    summaryCard('not_done', '未完了', unfinished), summaryCard('', '全Task', summary.total), summaryCard('active', '進行中', summary.inProgress),
     summaryCard('overdue', '期限超過', summary.overdue, 'overdue'), summaryCard('risk', '要注意', summary.atRisk, 'at_risk'),
     summaryCard('unscheduled', '日程未設定', summary.unscheduled, 'unscheduled')
   ].join('');
