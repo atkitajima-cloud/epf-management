@@ -41,5 +41,6 @@ Kanbanは状態ごとに列が分かれるため、カード全体を一列に�
 ## 実施結果
 
 - `orderTasksByDependency`をKanban用の並び替え関数から再利用した。
+- Kanban APIが返す正本の`depends_on`文字列を、表示時だけ`dependencies`配列へ正規化して共通関数へ渡すようにした。ガント専用の派生データをKanban APIへ重複追加しない。
 - 未完了列はガントと同じ依存順、Done列は既存の完了日降順で表示するようにした。
 - 依存順とDone列の順序を単体テストし、`npm test`で回帰確認した。
