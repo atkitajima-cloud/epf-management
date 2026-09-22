@@ -1,3 +1,5 @@
+import { orderTasksForKanban } from './kanban-order.js';
+
 // hintは列の見出しの下に常に表示する短い説明、descriptionはマウスを重ねたときに表示する定義。README.mdの表と合わせる。
 const statuses = [
   {
@@ -48,10 +50,11 @@ function escapeHtml(value) {
 }
 
 function renderBoard() {
+  const taskOrder = orderTasksForKanban(state.tasks.filter((task) => !task.invalid));
   board.innerHTML = statuses.map((status) => {
-    const tasks = state.tasks.filter((task) => task.status === status.id && !task.invalid);
-    if (status.id === 'done') tasks.sort((a, b) =>
-      (b.completed_at || '').localeCompare(a.completed_at || '') || b.id.localeCompare(a.id));
+    const tasks = status.id === 'done'
+      ? taskOrder.doneTasks
+      : taskOrder.activeTasks.filter((task) => task.status === status.id);
     return `
       <section class="column" data-status="${status.id}" style="--status-color:${status.color}" title="${escapeHtml(status.description)}">
         <header class="column-head">
