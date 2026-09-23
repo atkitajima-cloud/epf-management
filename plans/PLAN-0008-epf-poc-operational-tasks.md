@@ -12,7 +12,7 @@
 - `REQ-0003` として「EPF PoCをEPF Managementで実運用する」要求を追加する。
 - `EPF-0014` から `EPF-0020` まで、実PoC用の7件のTaskを追加する。
 - 各Taskへ日付、依存関係、Requirement、関連repo、Planを記録する。
-- `epf-project` の `docs/exec-plans/active/0001-api-contract-and-architecture-decisions.md` を、API契約とアーキテクチャ判断の正本としてリンクする。
+- `epf-project` の `docs/exec-plans/completed/0001-api-contract-and-architecture-decisions.md` を、API契約とアーキテクチャ判断の決定経緯としてリンクする。確定設計の正本は `epf-project/docs/design-docs/` とする。
 
 ## 対象外
 
