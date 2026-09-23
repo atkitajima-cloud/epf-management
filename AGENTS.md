@@ -16,6 +16,7 @@
 - TaskとExecPlanの同期ルールは `../epf-project/docs/design-docs/task-execplan-sync.md` を参照する。
 - 設計・判断Taskを完了する前に、後続実装Taskと依存関係、または実装不要理由を記録する。
 - 再利用するAI作業のSkill運用は `../epf-project/docs/design-docs/ai-skill-operation.md` を参照する。
+- AI作業で検出された不備・記録漏れ・再発防止事項は、`../epf-project/docs/design-docs/ai-work-defect-record-and-improvement-loop.md` と `../epf-project/docs/references/ai-work-defect-log.md` に従って記録・追跡する。
 - 事実と推測・提案を明確に分ける。
 
 ## AIの安全性
