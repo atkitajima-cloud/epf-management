@@ -61,3 +61,22 @@ test('循環依存とその後続を末尾へ残して警告対象にする', ()
   assert.deepEqual(result.tasks.map((task) => task.id), ['EPF-0003', 'EPF-0001', 'EPF-0002', 'EPF-0004']);
   assert.deepEqual(result.unresolvedTaskIds, ['EPF-0001', 'EPF-0002', 'EPF-0004']);
 });
+
+test('同時に着手できるTaskは開始日の早い順に並べる', () => {
+  const result = orderTasksByDependency([
+    { id: 'EPF-0001', start: '2026-09-27', dependencies: ['EPF-0003'] },
+    { id: 'EPF-0002', start: '2026-09-26', dependencies: [] },
+    { id: 'EPF-0003', start: '2026-09-25', dependencies: [] },
+    { id: 'EPF-0004', start: '2026-09-24', dependencies: [] }
+  ]);
+  assert.deepEqual(result.tasks.map((task) => task.id), ['EPF-0004', 'EPF-0003', 'EPF-0002', 'EPF-0001']);
+});
+
+test('開始日のないTaskは開始日のあるTaskより後ろへ置く', () => {
+  const result = orderTasksByDependency([
+    { id: 'EPF-0001', start: '', dependencies: [] },
+    { id: 'EPF-0002', start: '2026-09-30', dependencies: [] },
+    { id: 'EPF-0003', start: '', dependencies: [] }
+  ]);
+  assert.deepEqual(result.tasks.map((task) => task.id), ['EPF-0002', 'EPF-0001', 'EPF-0003']);
+});

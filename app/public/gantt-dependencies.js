@@ -33,9 +33,20 @@ export function orderTasksByDependency(tasks) {
     }
   }
 
-  const compareByOriginalOrder = (left, right) => order.get(left) - order.get(right);
+  // 同時に着手できるTask同士は開始日の早い順に置く。開始日未設定は後ろへ回し、同日は元の順序を保つ。
+  const startOf = (id) => tasksById.get(id)?.start || '';
+  const compareReadyTasks = (left, right) => {
+    const leftStart = startOf(left);
+    const rightStart = startOf(right);
+    if (leftStart !== rightStart) {
+      if (!leftStart) return 1;
+      if (!rightStart) return -1;
+      return leftStart < rightStart ? -1 : 1;
+    }
+    return order.get(left) - order.get(right);
+  };
   const ready = tasks.filter((task) => indegree.get(task.id) === 0).map((task) => task.id);
-  ready.sort(compareByOriginalOrder);
+  ready.sort(compareReadyTasks);
   const orderedIds = [];
   while (ready.length) {
     const sourceId = ready.shift();
@@ -44,7 +55,7 @@ export function orderTasksByDependency(tasks) {
       indegree.set(targetId, indegree.get(targetId) - 1);
       if (indegree.get(targetId) === 0) {
         ready.push(targetId);
-        ready.sort(compareByOriginalOrder);
+        ready.sort(compareReadyTasks);
       }
     }
   }
