@@ -11,6 +11,7 @@ EPF ManagementのTask Markdownを正本として、関連するExecPlanとの状
 
 - このrepoの`AGENTS.md`
 - `../epf-project/docs/design-docs/task-execplan-sync.md`
+- `../epf-project/docs/design-docs/development-workflow-and-branch-operation.md`（実装Taskのbranch・Pull Request・AWS principalの運用）
 - `../epf-project/docs/design-docs/ai-skill-operation.md`
 - 対象の`tasks/EPF-XXXX.md`と、そこからリンクされるExecPlan
 
@@ -48,6 +49,8 @@ Task・ExecPlanの状態または記録を実際に確認・更新する作業�
 
 - Taskを`done`にする場合、`completed_at`へ日本時間の当日を記録する。
 - ExecPlanへ実施結果、検証結果、関連commitまたはPull Requestを記録する。
+- 実装Taskでは、Task本文の`## 実装記録`にrepoごとのbranch、Pull Request、merge commit、Pipeline結果、検証結果が記録されていることを確認する。Task:branchが1:Nの場合も、すべてのrepoを確認する。
+- `main`へ直接pushした例外では、branch・Pull Requestの代わりに、人間の明示承認、理由、影響、追補レビュー結果を確認する。
 - 設計・判断Taskでは、`## 実装への引き渡し`が次のいずれかを満たすことを確認する。
   - 実装が必要: 後続Task、実装repo、引き渡す決定、後続Taskの完了条件がある。
   - 実装不要: 判定と理由がある。
