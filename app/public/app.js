@@ -17,11 +17,7 @@ const statuses = [
   },
   { id: 'done', label: 'Done', color: '#3d9871', hint: '完了条件を満たした', description: '完了条件をすべて満たし、確認が済んだ。' }
 ];
-const repositoryLabels = {
-  'epf-project': 'project', 'epf-management': 'management', 'epf-backend': 'backend', 'epf-frontend': 'frontend', common: 'common'
-};
-
-const state = { tasks: [], draggingId: null };
+const state = { tasks: [], repositories: [], draggingId: null };
 const board = document.querySelector('#board');
 const dialog = document.querySelector('#taskDialog');
 const taskForm = document.querySelector('#taskForm');
@@ -49,6 +45,27 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function repositoryFor(value) {
+  return state.repositories.find((repository) => repository.value === value);
+}
+
+function repositoryOptions(current = '') {
+  return state.repositories.map((repository) => `<option value="${escapeHtml(repository.value)}"${repository.value === current ? ' selected' : ''}>${escapeHtml(repository.label)}</option>`).join('');
+}
+
+function repositoryBadge(value) {
+  const repository = repositoryFor(value);
+  if (!repository) return `<span class="repository">${escapeHtml(value)}</span>`;
+  return `<span class="repository" style="color:${repository.color};background:${repository.background}">${escapeHtml(repository.label)}</span>`;
+}
+
+function renderInvalidTaskWarning() {
+  const invalidTasks = state.tasks.filter((task) => task.invalid);
+  const section = document.querySelector('#invalidTaskWarning');
+  section.hidden = invalidTasks.length === 0;
+  section.querySelector('ul').innerHTML = invalidTasks.map((task) => `<li><b>${escapeHtml(task.id)}</b>: ${escapeHtml(task.error)}</li>`).join('');
+}
+
 function renderBoard() {
   const taskOrder = orderTasksForKanban(state.tasks.filter((task) => !task.invalid));
   board.innerHTML = statuses.map((status) => {
@@ -68,13 +85,14 @@ function renderBoard() {
       </section>`;
   }).join('');
   document.querySelector('#taskCount').textContent = `${state.tasks.filter((task) => !task.invalid).length} tasks`;
+  renderInvalidTaskWarning();
   wireBoardEvents();
 }
 
 function renderCard(task) {
   return `
     <article class="task-card" draggable="true" tabindex="0" data-id="${task.id}" aria-label="${escapeHtml(task.title)}">
-      <div class="card-top"><span class="task-id">${task.id}</span><span class="card-badges"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span><span class="priority ${task.priority}">${task.priority}</span></span></div>
+      <div class="card-top"><span class="task-id">${task.id}</span><span class="card-badges">${repositoryBadge(task.target_repo)}<span class="priority ${task.priority}">${task.priority}</span></span></div>
       <div class="card-title">${escapeHtml(task.title)}</div>
       <div class="card-meta"><span class="owner">◉ ${escapeHtml(task.owner)}</span><span>${task.status === 'done' ? `完了 ${task.completed_at?.slice(5) || '日付不明'}` : task.due ? `◷ ${task.due.slice(5)}` : '期限なし'}</span></div>
     </article>`;
@@ -119,8 +137,11 @@ function wireBoardEvents() {
 }
 
 async function loadTasks() {
-  const { tasks } = await api('/api/tasks');
+  const { tasks, targetRepositories } = await api('/api/tasks');
   state.tasks = tasks;
+  state.repositories = targetRepositories;
+  taskForm.elements.target_repo.innerHTML = repositoryOptions();
+  createForm.elements.target_repo.innerHTML = repositoryOptions('common');
   renderBoard();
 }
 
@@ -134,6 +155,7 @@ async function openTask(id) {
   try {
     const [{ task, vscodeUri }, { owners }] = await Promise.all([api(`/api/tasks/${id}`), api('/api/owners')]);
     taskForm.elements.owner.innerHTML = ownerOptions(owners, task.owner);
+    taskForm.elements.target_repo.innerHTML = repositoryOptions(task.target_repo);
     document.querySelector('#dialogTaskId').textContent = task.id;
     document.querySelector('#openTaskInVscode').href = vscodeUri;
     for (const field of ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'body']) {
@@ -171,6 +193,7 @@ document.querySelector('#newTaskButton').addEventListener('click', async () => {
     createForm.elements.requirement.innerHTML = ['<option value=""></option>', ...requirements
       .map((item) => `<option value="${item.id}">${escapeHtml(item.id)} ${escapeHtml(item.title)}</option>`)].join('');
     createForm.reset();
+    createForm.elements.target_repo.innerHTML = repositoryOptions('common');
     createForm.elements.target_repo.value = 'common';
     createForm.elements.body.value = bodyTemplate;
     if (owners.includes('unassigned')) createForm.elements.owner.value = 'unassigned';

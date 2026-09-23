@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
+import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -123,6 +123,23 @@ test('対象リポジトリを作成・更新でき、旧repo項目は保存し�
   assert.match(source, /^target_repo: epf-frontend$/m);
   assert.doesNotMatch(source, /^(frontend_repo|backend_repo):/m);
   await assert.rejects(updateTask(root, created.id, { target_repo: 'invalid' }), /target_repo/);
+});
+
+test('対象リポジトリの保存値・表示名・色は共通定義から導出される', () => {
+  assert.deepEqual(TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS.map((repository) => repository.value));
+  assert.deepEqual(TARGET_REPOSITORY_OPTIONS.find((repository) => repository.value === 'epf-backend'), {
+    value: 'epf-backend', label: 'backend', color: '#2869b4', background: '#e4f0ff'
+  });
+  assert.throws(() => validateTask({ ...sample, target_repo: 'backend' }), /target_repo/);
+});
+
+test('Markdown直接編集による無効な対象repoのTaskはIDと理由を保持して返す', async (context) => {
+  const root = await makeRoot(context);
+  await fs.writeFile(path.join(root, 'tasks', 'EPF-0002.md'), serializeMarkdown({ ...sample, id: 'EPF-0002', target_repo: 'backend' }, '# 不正値'), 'utf8');
+  const invalid = (await listTasks(root)).find((task) => task.id === 'EPF-0002');
+  assert.equal(invalid.invalid, true);
+  assert.match(invalid.error, /target_repo/);
+  assert.equal(buildGanttData(await listTasks(root)).tasks.some((task) => task.id === 'EPF-0002'), false);
 });
 
 test('完了日を自動記録し、完了Taskを新しい順に並べる', async (context) => {

@@ -4,7 +4,15 @@ import { pathToFileURL } from 'node:url';
 
 export const STATUSES = ['backlog', 'ready', 'doing', 'review', 'done'];
 export const PRIORITIES = ['low', 'medium', 'high'];
-export const TARGET_REPOSITORIES = ['epf-project', 'epf-management', 'epf-backend', 'epf-frontend', 'common'];
+// 保存値・画面表示・バッジ色の正本。画面側に値ごとの別マッピングを置かない。
+export const TARGET_REPOSITORY_OPTIONS = Object.freeze([
+  { value: 'epf-project', label: 'project', color: '#6740a5', background: '#f0e9ff' },
+  { value: 'epf-management', label: 'management', color: '#267757', background: '#e4f5ed' },
+  { value: 'epf-backend', label: 'backend', color: '#2869b4', background: '#e4f0ff' },
+  { value: 'epf-frontend', label: 'frontend', color: '#9a5e0a', background: '#fff0d9' },
+  { value: 'common', label: 'common', color: '#667085', background: '#edf0f5' }
+]);
+export const TARGET_REPOSITORIES = TARGET_REPOSITORY_OPTIONS.map((repository) => repository.value);
 export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority', 'target_repo'];
 
 function parseScalar(value) {

@@ -3,7 +3,6 @@ import { buildDependencyPaths, orderTasksByDependency } from './gantt-dependenci
 const TIMELINE_LEFT = 740;
 const state = { data: null, scale: 'day', filter: { owner: '', status: 'not_done', targetRepo: '', requirement: '', schedule: '' } };
 const labels = { done: '完了', overdue: '期限超過', start_late: '着手遅れ', blocked: '依存待ち', at_risk: '要注意', on_track: '予定どおり', unscheduled: '日程未設定', invalid: '日程矛盾' };
-const repositoryLabels = { 'epf-project': 'project', 'epf-management': 'management', 'epf-backend': 'backend', 'epf-frontend': 'frontend', common: 'common' };
 const statusLabels = { backlog: 'Backlog', ready: 'Ready', doing: 'Doing', review: 'Review', done: 'Done' };
 
 async function api(url) {
@@ -17,6 +16,13 @@ function dayNumber(value) { return Math.floor(Date.parse(`${value}T00:00:00Z`) /
 function dateString(number) { return new Date(number * 86_400_000).toISOString().slice(0, 10); }
 function addDays(value, days) { return dateString(dayNumber(value) + days); }
 function unique(values) { return [...new Set(values.filter(Boolean))].sort(); }
+function repositoryFor(value) { return state.data.targetRepositories.find((repository) => repository.value === value); }
+function repositoryLabel(value) { return repositoryFor(value)?.label || value; }
+function repositoryBadge(value) {
+  const repository = repositoryFor(value);
+  if (!repository) return `<span class="repository">${escapeHtml(value)}</span>`;
+  return `<span class="repository" style="color:${repository.color};background:${repository.background}">${escapeHtml(repository.label)}</span>`;
+}
 function monday(value) { const date = new Date(`${value}T00:00:00Z`); const day = (date.getUTCDay() + 6) % 7; return addDays(value, -day); }
 
 function fillSelect(id, values, current) {
@@ -29,7 +35,9 @@ function updateFilters() {
   const tasks = state.data.tasks;
   fillSelect('#ownerFilter', unique(tasks.map((task) => task.owner)), state.filter.owner);
   fillSelect('#statusFilter', unique(tasks.map((task) => task.status)), state.filter.status);
-  fillSelect('#repositoryFilter', unique(tasks.map((task) => task.target_repo)), state.filter.targetRepo);
+  const repositorySelect = document.querySelector('#repositoryFilter');
+  repositorySelect.innerHTML = `<option value="">すべて</option>${state.data.targetRepositories.map((repository) => `<option value="${escapeHtml(repository.value)}">${escapeHtml(repository.label)}</option>`).join('')}`;
+  repositorySelect.value = state.filter.targetRepo;
   fillSelect('#requirementFilter', unique(tasks.map((task) => task.requirement)), state.filter.requirement);
   fillSelect('#scheduleFilter', unique(tasks.map((task) => task.scheduleStatus)), state.filter.schedule);
 }
@@ -116,7 +124,7 @@ async function openTask(id) {
     const values = [
       ['状態', statusLabels[task.status] || task.status],
       ['担当者', task.owner],
-      ['対象リポジトリ', repositoryLabels[task.target_repo] || task.target_repo],
+      ['対象リポジトリ', repositoryLabel(task.target_repo)],
       ['優先度', task.priority],
       ['開始日', task.start || '未設定'],
       ['期限', task.due || '未設定'],
@@ -146,7 +154,7 @@ function renderGantt() {
     }
     const dependency = task.dependencies.length ? `<small>先行: ${escapeHtml(task.dependencies.join(', '))}</small>` : '';
     const warnings = task.warnings.length ? `<small class="row-warning">${escapeHtml(task.warnings.join(' / '))}</small>` : '';
-    return `<div class="task-row" data-row-id="${task.id}"><button class="task-cell" data-id="${task.id}"><b>${task.id}</b><span>${escapeHtml(task.title)}</span>${dependency}${warnings}</button><div class="owner-cell">${escapeHtml(task.owner)}</div><div class="repository-cell"><span class="repository ${task.target_repo}">${repositoryLabels[task.target_repo]}</span></div><div class="progress-cell">${task.progress.value}%${task.progress.estimated ? '*' : ''}</div><div class="task-status-cell"><span class="task-status ${task.status}">${statusLabels[task.status] || task.status}</span></div><div class="status-cell"><span class="status-pill ${task.scheduleStatus}">${labels[task.scheduleStatus]}</span></div><div class="timeline-row" style="width:${timelineWidth}px;background-size:${columnWidth}px 100%">${bar}</div></div>`;
+    return `<div class="task-row" data-row-id="${task.id}"><button class="task-cell" data-id="${task.id}"><b>${task.id}</b><span>${escapeHtml(task.title)}</span>${dependency}${warnings}</button><div class="owner-cell">${escapeHtml(task.owner)}</div><div class="repository-cell">${repositoryBadge(task.target_repo)}</div><div class="progress-cell">${task.progress.value}%${task.progress.estimated ? '*' : ''}</div><div class="task-status-cell"><span class="task-status ${task.status}">${statusLabels[task.status] || task.status}</span></div><div class="status-cell"><span class="status-pill ${task.scheduleStatus}">${labels[task.scheduleStatus]}</span></div><div class="timeline-row" style="width:${timelineWidth}px;background-size:${columnWidth}px 100%">${bar}</div></div>`;
   }).join('');
   const todayLine = todayIndex >= 0 && todayIndex < timeline.units.length ? `<div class="today-line" style="left:${todayIndex * columnWidth}px"><span>今日</span></div>` : '';
   document.querySelector('#emptyState').hidden = tasks.length > 0;

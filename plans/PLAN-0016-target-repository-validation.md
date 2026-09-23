@@ -54,3 +54,6 @@ EPF-0035で`backend`を保存したが、正しい保存値は`epf-backend`で�
 ## 実施記録
 
 - 2026-09-23: Planを作成し、人間レビュー待ちとした。コード・test・画面変更は未実施。
+- 2026-09-23: `app/lib/markdown.js`へ保存値・短縮表示名・バッジ色の共通定義を追加し、Kanban／ガントはAPIが返す同定義を参照するようにした。
+- 2026-09-23: Markdown直接編集で無効な`target_repo`が混入した場合、Kanban上部にTask IDと検証エラーを出すようにした。正規の状態列・ガント集計には混在させず、正本Markdownは自動修正しない。
+- 2026-09-23: `npm test`（35件）と`node --check app/server.js app/public/app.js app/public/gantt.js`が成功。ローカルAPIで`target_repo: backend`のPOSTがHTTP 400になること、および対象repo共通定義の返却を確認した。ブラウザでの警告表示、対象repoの選択肢、既存Taskのバッジ色は人間レビュー待ち。
