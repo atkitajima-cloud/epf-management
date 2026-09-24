@@ -2,9 +2,9 @@
 
 ## 状態
 
-- 状態: 実装済み・人間レビュー待ち
+- 状態: 完了
 - 関連Task: [EPF-0038](../tasks/EPF-0038.md)
-- 上位計画: [規約検査と人間承認ゲート](../../epf-project/docs/exec-plans/active/0014-rule-and-human-approval-gates.md)
+- 上位計画: [規約検査と人間承認ゲート](../../epf-project/docs/exec-plans/completed/0014-rule-and-human-approval-gates.md)
 - 人間承認: 2026-09-24、上位計画への「承認します。実装をお願い」に基づく。
 
 ## 目的
@@ -61,3 +61,4 @@
 - 2026-09-24: `accepted_by`とサーバー時刻の記録、既存受入を要求する`done`遷移、実日時検証、無効Task表示を実装した。`npm test`は38件成功。実Task 52件の読込で無効0件。アプリHTMLとTask一覧APIはHTTP 200。local commitは`fa6f654`。PRと人間受入は未実施。
 - 2026-09-24: 人間のレビュー指摘を受け、横断検査プログラムと切れリンクbaselineの配置先を`epf-project`からこのrepoへ変更する。4repoのhook参照、手順、検証記録を同時に更新する。
 - 2026-09-24: [EPF-0038のGitHub PR #1](https://github.com/atkitajima-cloud/epf-management/pull/1)を`master`宛てに作成した。人間レビュー、merge、Pipeline、最終受入は未実施。
+- 2026-09-24: PR #1の人間mergeとlocal／remote branch cleanupを確認した。利用者のクローズ指示に基づきTaskの受入を記録する。Managementにはdeploy用Pipelineがない。
