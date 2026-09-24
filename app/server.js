@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, TARGET_REPOSITORY_OPTIONS, updateTask, vscodeUriForTask } from './lib/markdown.js';
+import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, TARGET_REPOSITORY_OPTIONS, updateTask, vscodeUriForTask } from './lib/markdown.js';
 import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest } from './lib/git.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -57,6 +57,10 @@ async function handleApi(request, response, url) {
   }
   if (request.method === 'PUT' && taskMatch) {
     return sendJson(response, 200, { task: await updateTask(root, taskMatch[1], await readJson(request)) });
+  }
+  if (request.method === 'POST' && url.pathname.match(/^\/api\/tasks\/EPF-\d{4}\/accept$/)) {
+    const id = url.pathname.split('/')[3];
+    return sendJson(response, 200, { task: await acceptTask(root, id) });
   }
   if (request.method === 'PATCH' && url.pathname.match(/^\/api\/tasks\/EPF-\d{4}\/status$/)) {
     const id = url.pathname.split('/')[3];

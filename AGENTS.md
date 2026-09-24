@@ -51,3 +51,9 @@
 - コミット前に対象ファイル、差分、テストまたは確認結果を確認し、無関係な変更を混在させない。
 - コミットメッセージは日本語を必須とし、そのターンの変更内容が履歴から分かる簡潔な命令形にする。
 - このルールはCodexの作業に適用するものであり、Webアプリが利用者の操作を自動commit / pushすることを意味しない。
+
+## 規約検査
+
+- 作業開始時に `git config core.hooksPath .githooks` を設定する。commit前に `../epf-project/scripts/check-records.mjs` が4repoの記録を検査する。
+- 実装差分のcommitでは `EPF_TASK_ID` に対象Task IDを指定する。手動確認は `node ../epf-project/scripts/check-records.mjs` で行う。
+- このローカル検査を迂回できる経路のサーバー側対策はEPF-0039で扱う。

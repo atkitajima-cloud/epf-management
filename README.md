@@ -104,9 +104,11 @@ Kanbanの5つの列は、次の意味で使います。画面でも、各列の�
 | Review | 作業は終わり、完了条件を満たしているかの確認（レビュー・検証）を待っている。 |
 | Done | 完了条件をすべて満たし、確認が済んだ。 |
 
-アプリの動作はステータスによって変わりません（Readyにする条件を、アプリが確認することはありません）。
+Readyにする条件はアプリでは確認しません。Doneへの変更には、人間受入の事前記録が必要です。
 
-Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `target_repo` です。`target_repo` は `epf-project`, `epf-management`, `epf-backend`, `epf-frontend`, `common` のいずれかです。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。`completed_at` は完了日（YYYY-MM-DD）の任意項目で、画面でTaskを完了にした時に自動で記録され、差し戻すと消去されます。Markdownを直接編集して完了にする場合は、完了日を推測・補完しません。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
+Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `target_repo` です。`target_repo` は `epf-project`, `epf-management`, `epf-backend`, `epf-frontend`, `common` のいずれかです。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。`done`には`completed_at`（YYYY-MM-DD）、`accepted_by`、`actual_completed_at`が必要です。`actual_started_at`と`actual_completed_at`はタイムゾーン付きISO 8601形式で記録します。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
+
+人間が成果物を受け入れるときは、TaskをReviewにして詳細画面の「人間受入を記録」を押します。アプリはTaskのownerを`accepted_by`、サーバー時刻を`actual_completed_at`へ保存します。その後、別の操作でDoneへ変更します。受入とDoneの同時送信は拒否されます。現在のアプリには利用者認証がないため、この記録は操作者本人の証明にはなりません。導入前に完了したTaskは`config/task-validation-baseline.json`に限定して経過措置を記録しています。
 
 ## Taskの作成
 

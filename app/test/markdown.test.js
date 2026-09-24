@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
+import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -35,7 +35,7 @@ test('Task作成・status更新・WBS生成がMarkdownへ反映される', async
   await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown(sample, '# Sample'), 'utf8');
 
   const created = await createTask(root, {
-    title: '新しいTask', owner: 'tester', priority: 'high', body: '# 目的\n\nTest'
+    title: '新しいTask', owner: 'tester', priority: 'high', body: BODY_TEMPLATE
   });
   assert.equal(created.id, 'EPF-0002');
   assert.equal((await listTasks(root)).length, 2);
@@ -89,8 +89,9 @@ test('画面からのTask作成は共通の雛形を使い、planを書かず、
   assert.equal(parsed.data.status, 'ready');
   assert.equal(parsed.data.target_repo, 'common');
   assert.equal(parsed.body.trim(), '# 背景\n\n（未記入）\n\n# 目的\n\n（未記入）\n\n# 完了条件\n\n- [ ] \n- [ ] \n- [ ] \n\n# 関連\n\n（未記入）');
-  const own = await createTask(root, { title: '本文あり', owner: 'tester', requirement: 'REQ-0001', body: '# 独自' });
-  assert.equal(own.body, '# 独自');
+  const own = await createTask(root, { title: '本文あり', owner: 'tester', requirement: 'REQ-0001', body: BODY_TEMPLATE.replace('（未記入）', '独自') });
+  assert.match(own.body, /独自/);
+  await assert.rejects(createTask(root, { title: '見出しなし', owner: 'tester', body: '# 独自' }), /見出しが必要/);
   assert.deepEqual(await listRequirements(root), [{ id: 'REQ-0001', title: '要件' }]);
 });
 
@@ -142,14 +143,22 @@ test('Markdown直接編集による無効な対象repoのTaskはIDと理由を�
   assert.equal(buildGanttData(await listTasks(root)).tasks.some((task) => task.id === 'EPF-0002'), false);
 });
 
-test('完了日を自動記録し、完了Taskを新しい順に並べる', async (context) => {
+test('受入を別操作で記録したTaskだけ完了でき、完了日を受入日時に合わせる', async (context) => {
   const root = await makeRoot(context);
-  const created = await createTask(root, { title: '完了で作成', owner: 'tester', status: 'done' });
-  assert.match(created.completed_at, /^\d{4}-\d{2}-\d{2}$/);
+  await assert.rejects(createTask(root, { title: '完了で作成', owner: 'tester', status: 'done' }), /新規Taskはdoneで作成できません/);
+  await assert.rejects(updateTask(root, 'EPF-0001', { status: 'done', accepted_by: 'tester', actual_completed_at: new Date().toISOString() }), /受入を先に別操作/);
+  await updateTask(root, 'EPF-0001', { status: 'review' });
+  const accepted = await acceptTask(root, 'EPF-0001');
+  assert.equal(accepted.accepted_by, 'tester');
+  assert.match(accepted.actual_completed_at, /Z$/);
   const completed = await updateTask(root, 'EPF-0001', { status: 'done' });
-  assert.match(completed.completed_at, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(completed.completed_at, new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(accepted.actual_completed_at)));
   const reopened = await updateTask(root, 'EPF-0001', { status: 'ready' });
   assert.equal(reopened.completed_at, '');
+  assert.equal(reopened.accepted_by, '');
+  await assert.rejects(updateTask(root, 'EPF-0001', { status: 'done' }), /受入を先に別操作/);
+  await updateTask(root, 'EPF-0001', { status: 'review' });
+  await acceptTask(root, 'EPF-0001');
   const recompleted = await updateTask(root, 'EPF-0001', { status: 'done' });
   assert.match(recompleted.completed_at, /^\d{4}-\d{2}-\d{2}$/);
   assert.throws(() => validateTask({ ...sample, status: 'done', completed_at: '' }), /completed_at/);
@@ -160,6 +169,17 @@ test('完了日を自動記録し、完了Taskを新しい順に並べる', asyn
     { ...sample, id: 'EPF-0004', status: 'ready', completed_at: '' }
   ]);
   assert.deepEqual(sorted.map((task) => task.id), ['EPF-0004', 'EPF-0002', 'EPF-0001', 'EPF-0003']);
+});
+
+test('直接編集の受入欄欠落と不正な実日時は無効Taskになる', async (context) => {
+  const root = await makeRoot(context);
+  const direct = { ...sample, id: 'EPF-0002', status: 'done', completed_at: '2026-09-24' };
+  await fs.writeFile(path.join(root, 'tasks', 'EPF-0002.md'), serializeMarkdown(direct, BODY_TEMPLATE), 'utf8');
+  const invalid = (await listTasks(root)).find((task) => task.id === 'EPF-0002');
+  assert.equal(invalid.invalid, true);
+  assert.match(invalid.error, /accepted_by/);
+  assert.throws(() => validateTask({ ...sample, actual_started_at: 'きのう' }), /actual_started_at/);
+  assert.throws(() => validateTask({ ...sample, actual_completed_at: '2026-02-30T12:00:00+09:00' }), /actual_completed_at/);
 });
 
 test('Requirementは空欄でTaskを作成でき、一覧・更新・WBSでも不正扱いにならない', async (context) => {

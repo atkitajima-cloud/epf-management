@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-09-24",
+  "legacyDoneTaskIds": [
+    "EPF-0001", "EPF-0002", "EPF-0003", "EPF-0004", "EPF-0005", "EPF-0006", "EPF-0007",
+    "EPF-0008", "EPF-0009", "EPF-0010", "EPF-0011", "EPF-0012", "EPF-0013", "EPF-0014",
+    "EPF-0015", "EPF-0016", "EPF-0017", "EPF-0018", "EPF-0019", "EPF-0020", "EPF-0021",
+    "EPF-0022", "EPF-0023", "EPF-0024", "EPF-0025", "EPF-0026", "EPF-0027", "EPF-0028",
+    "EPF-0029", "EPF-0030", "EPF-0031", "EPF-0032", "EPF-0033", "EPF-0034", "EPF-0035",
+    "EPF-0036", "EPF-0037", "EPF-0043", "EPF-0044", "EPF-0049", "EPF-0051", "EPF-0052"
+  ],
+  "uncheckedDoneExceptionIds": [
+    "EPF-0002", "EPF-0003", "EPF-0004", "EPF-0005", "EPF-0006", "EPF-0007", "EPF-0008",
+    "EPF-0009", "EPF-0010", "EPF-0011", "EPF-0012", "EPF-0013", "EPF-0016"
+  ],
+  "missingHeadingExceptionIds": ["EPF-0010", "EPF-0011", "EPF-0051", "EPF-0052"],
+  "implementationTaskIds": ["EPF-0038"]
+}
