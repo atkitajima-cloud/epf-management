@@ -58,10 +58,11 @@ Taskを`review`または`done`へ進める前にも、未記録の人間指摘�
 
 - Taskを`done`にする場合、`completed_at`へ日本時間の当日を記録する。
 - ExecPlanへ実施結果、検証結果、関連commitまたはPull Requestを記録する。
-- 実装Taskでは、Task本文の`## 実装記録`にrepoごとのbranch、Pull Request、merge commit、Pipeline結果、検証結果が記録されていることを確認する。Task:branchが1:Nの場合も、すべてのrepoを確認する。
-- 対象repoごとに、作業ツリーがcleanであること、local `main`がmerge commitを含むこと、local／CodeCommitのsource branchが削除済みであることを確認し、結果をTask本文とExecPlanへ記録する。AIのCodeCommit Git操作では`atkit_ai`とAWS CLI credential helperを明示する。
-- Pipeline失敗、未完了の人間受入、または未commit変更がある場合はcleanupを実行しない。残すbranchと阻害要因を記録し、Taskを`done`にしない。
-- `main`へ直接pushした例外では、branch・Pull Requestの代わりに、人間の明示承認、理由、影響、追補レビュー結果を確認する。
+- `epf-backend`／`epf-frontend`の実装では、Task本文の`## 実装記録`にrepoごとのbranch、Pull Request、merge commit、Pipeline結果、検証結果が記録されていることを確認する。Task:branchが1:Nの場合も、すべてのrepoを確認する。
+- `epf-backend`／`epf-frontend`では、作業ツリーがcleanであること、local `main`がmerge commitを含むこと、local／CodeCommitのsource branchが削除済みであることを確認し、結果をTask本文とExecPlanへ記録する。AIのCodeCommit Git操作では`atkit_ai`とAWS CLI credential helperを明示する。
+- `epf-backend`／`epf-frontend`でPipeline失敗、未完了の人間受入、または未commit変更がある場合はcleanupを実行しない。残すbranchと阻害要因を記録し、Taskを`done`にしない。
+- `epf-backend`／`epf-frontend`で`main`へ直接pushした例外では、branch・Pull Requestの代わりに、人間の明示承認、理由、影響、追補レビュー結果を確認する。
+- `epf-project`／`epf-management`の変更では、commitと検証結果を記録する。Pull Request、merge commit、Pipeline、source branch cleanupは必須条件にしない。Pull Requestを使った場合だけ、その結果を記録する。計画の人間承認とTaskの最終受入は確認する。
 - 設計・判断Taskでは、`## 実装への引き渡し`が次のいずれかを満たすことを確認する。
   - 実装が必要: 後続Task、実装repo、引き渡す決定、後続Taskの完了条件がある。
   - 実装不要: 判定と理由がある。
