@@ -162,6 +162,9 @@ async function openTask(id) {
       taskForm.elements[field].value = task[field] || '';
     }
     document.querySelector('#saveStatus').textContent = '';
+    document.querySelector('#acceptanceStatus').textContent = task.accepted_by
+      ? `受入済み: ${task.accepted_by}（${task.actual_completed_at}）` : '受入未記録';
+    document.querySelector('#acceptTaskButton').disabled = task.status !== 'review' || Boolean(task.accepted_by);
     dialog.showModal();
   } catch (error) { toast(error.message); }
 }
@@ -184,7 +187,24 @@ taskForm.addEventListener('submit', async (event) => {
 });
 const createDialog = document.querySelector('#createDialog');
 const createForm = document.querySelector('#createForm');
-createForm.elements.status.innerHTML = statuses.map((status) => `<option value="${status.id}">${status.label}</option>`).join('');
+createForm.elements.status.innerHTML = statuses.filter((status) => status.id !== 'done')
+  .map((status) => `<option value="${status.id}">${status.label}</option>`).join('');
+
+document.querySelector('#acceptTaskButton').addEventListener('click', async () => {
+  const id = document.querySelector('#dialogTaskId').textContent;
+  if (!window.confirm(`${id} の成果物を確認し、人間受入を記録しますか？`)) return;
+  const button = document.querySelector('#acceptTaskButton');
+  setBusy(button, true);
+  try {
+    await api(`/api/tasks/${id}/accept`, { method: 'POST' });
+    dialog.close();
+    await Promise.all([loadTasks(), loadGit()]);
+    await openTask(id);
+    toast(`${id} の受入を記録しました。完了への変更は別操作で行ってください`);
+  } catch (error) {
+    document.querySelector('#saveStatus').textContent = error.message;
+  } finally { setBusy(button, false); }
+});
 
 document.querySelector('#newTaskButton').addEventListener('click', async () => {
   try {

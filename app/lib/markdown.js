@@ -14,6 +14,38 @@ export const TARGET_REPOSITORY_OPTIONS = Object.freeze([
 ]);
 export const TARGET_REPOSITORIES = TARGET_REPOSITORY_OPTIONS.map((repository) => repository.value);
 export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority', 'target_repo'];
+const TASK_BASELINE = 'config/task-validation-baseline.json';
+const TASK_HEADINGS = ['# 背景', '# 目的', '# 完了条件', '# 関連'];
+
+async function validationBaseline(root) {
+  try {
+    const source = await fs.readFile(path.join(root, TASK_BASELINE), 'utf8');
+    const data = JSON.parse(source);
+    return {
+      legacyDone: new Set(data.legacyDoneTaskIds || [])
+    };
+  } catch (error) {
+    if (error.code === 'ENOENT') return { legacyDone: new Set() };
+    throw error;
+  }
+}
+
+function validTimestamp(value) {
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/);
+  if (!match || !Number.isFinite(Date.parse(value))) return false;
+  const [, year, month, day, hour, minute, second, zone] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() + 1 !== Number(month) || date.getUTCDate() !== Number(day)) return false;
+  if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return false;
+  if (zone !== 'Z' && (Number(zone.slice(1, 3)) > 23 || Number(zone.slice(4)) > 59)) return false;
+  return true;
+}
+
+function japanDate(value) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(value));
+  const dates = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return `${dates.year}-${dates.month}-${dates.day}`;
+}
 
 function parseScalar(value) {
   const trimmed = value.trim();
@@ -44,7 +76,7 @@ function formatScalar(value) {
 }
 
 export function serializeMarkdown(data, body) {
-  const preferred = ['id', 'title', 'status', 'completed_at', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
+  const preferred = ['id', 'title', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'accepted_by', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
   const legacy = new Set(['frontend_repo', 'backend_repo']);
   const keys = [...preferred.filter((key) => key in data), ...Object.keys(data).filter((key) => !preferred.includes(key) && !legacy.has(key))];
   return `---\n${keys.map((key) => data[key] === '' ? `${key}:` : `${key}: ${formatScalar(data[key])}`).join('\n')}\n---\n\n${String(body ?? '').trim()}\n`;
@@ -54,7 +86,7 @@ export function parseDependencies(value) {
   return String(value || '').split(',').map((id) => id.trim()).filter(Boolean);
 }
 
-export function validateTask(task) {
+export function validateTask(task, { legacyDone = new Set(), body } = {}) {
   for (const field of REQUIRED_FIELDS) if (!String(task[field] ?? '').trim()) throw new Error(`${field}は必須です`);
   if (!/^EPF-\d{4}$/.test(task.id)) throw new Error('idはEPF-0000形式で指定してください');
   if (!STATUSES.includes(task.status)) throw new Error(`statusは${STATUSES.join(', ')}のいずれかです`);
@@ -63,12 +95,23 @@ export function validateTask(task) {
   if (task.completed_at && !/^\d{4}-\d{2}-\d{2}$/.test(task.completed_at)) throw new Error('completed_atはYYYY-MM-DD形式で指定してください');
   if (task.status !== 'done' && task.completed_at) throw new Error('completed_atはstatusがdoneのTaskだけに指定できます');
   if (task.status === 'done' && !task.completed_at) throw new Error('statusがdoneのTaskにはcompleted_atが必要です');
+  for (const field of ['actual_started_at', 'actual_completed_at']) {
+    if (task[field] && !validTimestamp(task[field])) throw new Error(`${field}はタイムゾーン付きISO 8601形式で指定してください`);
+  }
+  if (task.status === 'done' && !legacyDone.has(task.id)) {
+    if (!task.accepted_by || !task.actual_completed_at) throw new Error('statusがdoneのTaskにはaccepted_byとactual_completed_atが必要です');
+    if (task.accepted_by !== task.owner) throw new Error('accepted_byはTaskのownerと一致する必要があります');
+    if (task.completed_at !== japanDate(task.actual_completed_at)) throw new Error('completed_atはactual_completed_atの日本時間の日付と一致する必要があります');
+  }
   if (task.requirement && !/^REQ-\d{4}$/.test(task.requirement)) throw new Error('requirementはREQ-0000形式で指定してください');
   for (const field of ['start', 'due']) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);
   }
   if (task.start && task.due && task.start > task.due) throw new Error('startはdue以前の日付を指定してください');
   for (const id of parseDependencies(task.depends_on)) if (!/^EPF-\d{4}$/.test(id)) throw new Error('depends_onはEPF-0000形式をカンマ区切りで指定してください');
+  if (body !== undefined) {
+    for (const heading of TASK_HEADINGS) if (!String(body).split(/\r?\n/).includes(heading)) throw new Error(`${heading}の見出しが必要です`);
+  }
 }
 
 export function progressForTask(task) {
@@ -79,12 +122,6 @@ export function progressForTask(task) {
     return { value: Math.round((completed / checks.length) * 100), estimated: false, completed, total: checks.length };
   }
   return { value: ({ backlog: 0, ready: 0, doing: 50, review: 90 }[task.status] ?? 0), estimated: true, completed: 0, total: 0 };
-}
-
-function todayInJapan() {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts();
-  const value = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
 }
 
 function dateOffset(date, days) {
@@ -169,12 +206,13 @@ export function vscodeUriForTask(root, id) {
 
 export async function listTasks(root) {
   const directory = path.join(root, 'tasks');
+  const baseline = await validationBaseline(root);
   const files = (await fs.readdir(directory)).filter((name) => /^EPF-\d{4}\.md$/.test(name)).sort();
   const results = [];
   for (const file of files) {
     try {
       const parsed = parseMarkdown(await fs.readFile(path.join(directory, file), 'utf8'));
-      validateTask(parsed.data);
+      validateTask(parsed.data, baseline);
       results.push({ ...parsed.data, body: parsed.body });
     } catch (error) { results.push({ id: file.replace('.md', ''), invalid: true, error: error.message }); }
   }
@@ -190,7 +228,7 @@ export function sortTasksForBoard(tasks) {
 
 export async function readTask(root, id) {
   const parsed = parseMarkdown(await fs.readFile(taskPath(root, id), 'utf8'));
-  validateTask(parsed.data);
+  validateTask(parsed.data, await validationBaseline(root));
   return { ...parsed.data, body: parsed.body };
 }
 
@@ -221,20 +259,44 @@ function ownerNotFoundMessage(owner) {
 
 export async function updateTask(root, id, changes) {
   const existing = await readTask(root, id);
-  const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
+  const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan', 'actual_started_at'];
   const data = { ...existing };
   delete data.body;
   delete data.frontend_repo;
   delete data.backend_repo;
   for (const key of allowed) if (key in changes) data[key] = String(changes[key] ?? '').trim();
-  if (data.status === 'done' && existing.status !== 'done') data.completed_at = todayInJapan();
-  if (data.status !== 'done') data.completed_at = '';
   const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
-  validateTask(data);
+  const contentChanged = body !== existing.body || allowed.some((key) => key !== 'status' && String(data[key] ?? '') !== String(existing[key] ?? ''));
+  if (data.status === 'done' && existing.status !== 'done') {
+    if (!existing.accepted_by || !existing.actual_completed_at) throw new Error('人間の受入を先に別操作で記録してください');
+    if (contentChanged) throw new Error('受入後にTaskを変更した場合は再受入が必要です');
+    data.completed_at = japanDate(existing.actual_completed_at);
+  }
+  if (data.status === 'done' && existing.status === 'done' && existing.accepted_by && contentChanged) throw new Error('完了済みTaskの変更には再受入が必要です');
+  if (data.status !== 'done') data.completed_at = '';
+  if (existing.status === 'done' && data.status !== 'done') {
+    data.accepted_by = '';
+    data.actual_completed_at = '';
+  } else if (data.status !== 'done' && existing.accepted_by && contentChanged) {
+    data.accepted_by = '';
+    data.actual_completed_at = '';
+  }
+  validateTask(data, await validationBaseline(root));
   // 担当者を変更するときだけマスタと照合する。担当者を変えない更新は、マスタ未登録の値でも失敗させない。
   if (data.owner !== existing.owner && !(await requireOwners(root)).includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
   await fs.writeFile(taskPath(root, id), serializeMarkdown(data, body), 'utf8');
   return { ...data, body };
+}
+
+export async function acceptTask(root, id) {
+  const existing = await readTask(root, id);
+  if (existing.status !== 'review') throw new Error('受入はreview状態のTaskにだけ記録できます');
+  if (existing.owner === 'unassigned') throw new Error('受入前にTaskのownerを決めてください');
+  const data = { ...existing, accepted_by: existing.owner, actual_completed_at: new Date().toISOString() };
+  delete data.body;
+  validateTask(data, await validationBaseline(root));
+  await fs.writeFile(taskPath(root, id), serializeMarkdown(data, existing.body), 'utf8');
+  return { ...data, body: existing.body };
 }
 
 export async function nextTaskId(root) {
@@ -285,7 +347,7 @@ export async function createTask(root, input) {
     completed_at: '',
     start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement
   };
-  if (data.status === 'done') data.completed_at = todayInJapan();
+  if (data.status === 'done') throw new Error('新規Taskはdoneで作成できません。作成後に人間受入を記録してください');
   validateTask({ id: 'EPF-0000', ...data });
   const owners = await requireOwners(root);
   if (!owners.includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
@@ -294,6 +356,7 @@ export async function createTask(root, input) {
   const existing = new Set((await listTasks(root)).map((task) => task.id));
   for (const id of parseDependencies(data.depends_on)) if (!existing.has(id)) throw new Error(`先行Task ${id}は存在しません`);
   const body = text(input.body) || BODY_TEMPLATE;
+  validateTask({ id: 'EPF-0000', ...data }, { body });
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const id = await nextTaskId(root);
     try {
