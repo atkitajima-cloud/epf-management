@@ -1,2 +1,2 @@
 #!/bin/sh
-node ../epf-project/scripts/check-records.mjs --staged --repo epf-management
+node scripts/check-records.mjs --staged --repo epf-management
