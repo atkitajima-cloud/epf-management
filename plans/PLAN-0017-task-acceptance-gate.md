@@ -60,3 +60,4 @@
 - 2026-09-24: 承認済みExecPlanを受け、アプリ変更分のPlanを作成した。
 - 2026-09-24: `accepted_by`とサーバー時刻の記録、既存受入を要求する`done`遷移、実日時検証、無効Task表示を実装した。`npm test`は38件成功。実Task 52件の読込で無効0件。アプリHTMLとTask一覧APIはHTTP 200。local commitは`fa6f654`。PRと人間受入は未実施。
 - 2026-09-24: 人間のレビュー指摘を受け、横断検査プログラムと切れリンクbaselineの配置先を`epf-project`からこのrepoへ変更する。4repoのhook参照、手順、検証記録を同時に更新する。
+- 2026-09-24: [EPF-0038のGitHub PR #1](https://github.com/atkitajima-cloud/epf-management/pull/1)を`master`宛てに作成した。人間レビュー、merge、Pipeline、最終受入は未実施。
