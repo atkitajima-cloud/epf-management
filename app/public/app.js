@@ -333,7 +333,7 @@ async function runGitOperation(button, busyText, action) {
 // 自動では取り込めなかった場合（他の人と同じ場所を変更した場合）の案内。自分の変更は元の状態に戻してある。
 function alertConflict(result) {
   const files = result.files || [];
-  const hint = files.some((file) => /^tasks\/EPF-(?:\d{4}|\d{17})\.md$/.test(file))
+  const hint = files.some((file) => /^tasks\/EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})\.md$/.test(file))
     ? '\n\n同じ番号のTaskを、別々に作成した場合にも起こります。Taskを作成する前にPullすると避けられます。' : '';
   window.alert(`他の人の変更と同じ場所を変更していたため、自動では取り込めませんでした。\n自分の変更は失われていません（操作前の状態に戻しました）。\n\n対象ファイル:\n${files.join('\n')}${hint}\n\n詳しい人に相談してください。`);
 }
@@ -378,7 +378,7 @@ document.querySelector('#commitPushButton').addEventListener('click', async (eve
         if (!update) return toast('変更を残しました。共有はしていません');
         await api('/api/git/update-conflicted-tasks', {
           method: 'POST',
-          body: JSON.stringify({ files: localChanges.map(({ path, fingerprint }) => ({ id: path.match(/EPF-(?:\d{4}|\d{17})/)?.[0], fingerprint })) })
+          body: JSON.stringify({ files: localChanges.map(({ path, fingerprint }) => ({ id: path.match(/EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})/)?.[0], fingerprint })) })
         });
         await Promise.all([loadTasks(), loadGit()]);
         return toast('最新版に更新しました。必要な変更をやり直してください');
@@ -413,5 +413,5 @@ function toast(message) {
 
 const taskFromGantt = new URLSearchParams(window.location.search).get('task');
 Promise.all([loadTasks(), loadGit(), loadHistory()]).then(() => {
-  if (/^EPF-(?:\d{4}|\d{17})$/.test(taskFromGantt || '')) openTask(taskFromGantt);
+  if (/^EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})$/.test(taskFromGantt || '')) openTask(taskFromGantt);
 }).catch((error) => toast(error.message));

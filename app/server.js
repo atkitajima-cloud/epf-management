@@ -48,7 +48,7 @@ async function handleApi(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/requirements') {
     return sendJson(response, 200, { requirements: await listRequirements(root), bodyTemplate: BODY_TEMPLATE });
   }
-  const taskMatch = url.pathname.match(/^\/api\/tasks\/(EPF-(?:\d{4}|\d{17}))$/);
+  const taskMatch = url.pathname.match(/^\/api\/tasks\/(EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3}))$/);
   if (request.method === 'GET' && taskMatch) {
     return sendJson(response, 200, {
       task: await readTask(root, taskMatch[1]),
@@ -59,12 +59,12 @@ async function handleApi(request, response, url) {
     const { revision, ...changes } = await readJson(request);
     return sendJson(response, 200, { task: await updateTask(root, taskMatch[1], changes, revision) });
   }
-  if (request.method === 'POST' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17})\/accept$/)) {
+  if (request.method === 'POST' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})\/accept$/)) {
     const id = url.pathname.split('/')[3];
     const { revision } = await readJson(request);
     return sendJson(response, 200, { task: await acceptTask(root, id, revision) });
   }
-  if (request.method === 'PATCH' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17})\/status$/)) {
+  if (request.method === 'PATCH' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})\/status$/)) {
     const id = url.pathname.split('/')[3];
     const { status, revision } = await readJson(request);
     return sendJson(response, 200, { task: await updateTask(root, id, { status }, revision) });

@@ -10,7 +10,7 @@ const MAX_WBS_RESOLUTIONS = 20;
 const NETWORK_TIMEOUT_MS = 60000;
 const HISTORY_LIMIT = 20;
 const TASK_FIELDS = ['title', 'status', 'owner', 'priority', 'start', 'due', 'requirement', 'depends_on'];
-const TASK_FILE_PATTERN = /^tasks\/(EPF-(?:\d{4}|\d{17}))\.md$/;
+const TASK_FILE_PATTERN = /^tasks\/(EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3}))\.md$/;
 
 async function git(root, args, { timeout } = {}) {
   // エディタや認証の入力待ちで止まらないようにする。
@@ -71,7 +71,7 @@ export async function updateConflictedTasks(root, files) {
   if (preview.ahead > 0) throw new Error('pushしていないcommitがあるため、自動更新できません。Gitで確認してください');
   const remoteChanges = await remoteChangedPaths(root);
   const tasks = files.map((item) => {
-    const match = String(item?.id || '').match(/^(EPF-(?:\d{4}|\d{17}))$/);
+    const match = String(item?.id || '').match(/^(EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3}))$/);
     if (!match) throw new Error('不正なTask IDです');
     return { id: match[1], file: `tasks/${match[1]}.md`, fingerprint: item.fingerprint };
   });
@@ -142,7 +142,7 @@ async function taskAt(root, revision, file) {
 }
 
 async function taskChange(root, hash, status, file) {
-  const match = file.match(/^tasks\/(EPF-(?:\d{4}|\d{17}))\.md$/);
+  const match = file.match(/^tasks\/(EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3}))\.md$/);
   if (!match || !['A', 'M'].includes(status[0])) return null;
   const [before, after] = await Promise.all([
     status[0] === 'A' ? null : taskAt(root, `${hash}^`, file),

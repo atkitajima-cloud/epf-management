@@ -110,7 +110,7 @@ for (const repo of repos) {
 }
 
 for (const name of indexed.get('epf-management')) {
-  if (!/^tasks\/EPF-(?:\d{4}|\d{17})\.md$/.test(name)) continue;
+  if (!/^tasks\/EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})\.md$/.test(name)) continue;
   const source = read('epf-management', name);
   if (source === null) continue;
   try {
@@ -144,7 +144,7 @@ for (const name of indexed.get('epf-management')) {
 const implementation = staged && currentRepo && [...stagedPaths].some((name) => /\.(?:js|mjs|cjs|ts|tsx|jsx|html|css|json|ya?ml|py|sh|go|java|cs|tf)$/.test(name) && !name.startsWith('docs/'));
 if (implementation) {
   const taskId = process.env.EPF_TASK_ID;
-  if (!/^EPF-(?:\d{4}|\d{17})$/.test(taskId || '')) errors.push('実装差分にはEPF_TASK_IDが必要です');
+  if (!/^EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})$/.test(taskId || '')) errors.push('実装差分にはEPF_TASK_IDが必要です');
   else {
     const source = read('epf-management', `tasks/${taskId}.md`);
     const planLink = linkedPlan(source);

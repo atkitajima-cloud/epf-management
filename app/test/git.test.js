@@ -213,8 +213,8 @@ test('別々のcloneで1ミリ秒異なる時刻に作成したTaskは異なるI
   }
   const first = await createTask(a, { title: 'A', owner: 'tester' }, { clock: () => new Date('2026-09-25T03:04:05.010Z') });
   const second = await createTask(b, { title: 'B', owner: 'tester' }, { clock: () => new Date('2026-09-25T03:04:05.011Z') });
-  assert.equal(first.id, 'EPF-20260925120405010');
-  assert.equal(second.id, 'EPF-20260925120405011');
+  assert.equal(first.id, 'EPF-20260925-120405-010');
+  assert.equal(second.id, 'EPF-20260925-120405-011');
   assert.notEqual(first.id, second.id);
 });
 

@@ -17,7 +17,7 @@ export const TARGET_REPOSITORIES = TARGET_REPOSITORY_OPTIONS.map((repository) =>
 export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority', 'target_repo'];
 const TASK_BASELINE = 'config/task-validation-baseline.json';
 const TASK_HEADINGS = ['# 背景', '# 目的', '# 完了条件', '# 関連'];
-const TASK_ID_PATTERN = /^EPF-(?:\d{4}|\d{17})$/;
+const TASK_ID_PATTERN = /^EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})$/;
 const taskWriteLocks = new Map();
 
 function taskRevision(source) {
@@ -29,7 +29,7 @@ export function taskIdForDate(now = new Date()) {
     timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
   }).formatToParts(now).filter(({ type }) => type !== 'literal').map(({ type, value }) => [type, value]));
-  return `EPF-${parts.year}${parts.month}${parts.day}${parts.hour}${parts.minute}${parts.second}${String(now.getMilliseconds()).padStart(3, '0')}`;
+  return `EPF-${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}${parts.second}-${String(now.getMilliseconds()).padStart(3, '0')}`;
 }
 
 async function withTaskWriteLock(file, operation) {
@@ -253,7 +253,7 @@ export function vscodeUriForTask(root, id) {
 export async function listTasks(root) {
   const directory = path.join(root, 'tasks');
   const baseline = await validationBaseline(root);
-  const files = (await fs.readdir(directory)).filter((name) => /^EPF-(?:\d{4}|\d{17})\.md$/.test(name)).sort();
+  const files = (await fs.readdir(directory)).filter((name) => /^EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})\.md$/.test(name)).sort();
   const results = [];
   for (const file of files) {
     try {

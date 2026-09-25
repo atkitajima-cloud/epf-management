@@ -108,7 +108,7 @@ Readyにする条件はアプリでは確認しません。Doneへの変更に�
 
 Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `target_repo` です。`target_repo` は `epf-project`, `epf-management`, `epf-backend`, `epf-frontend`, `common` のいずれかです。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。`done`には`completed_at`（YYYY-MM-DD）、`accepted_by`、`actual_completed_at`が必要です。`actual_started_at`と`actual_completed_at`はタイムゾーン付きISO 8601形式で記録します。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
 
-新しいTask IDは、日本時間の年月日時分秒とミリ秒3桁を使います（例: `EPF-20260925120405006`）。既存の4桁IDはそのまま使えます。
+新しいTask IDは、日本時間の年月日・時分秒・ミリ秒3桁をハイフンで区切ります（例: `EPF-20260925-120405-006`）。既存のTask IDはそのまま使えます。
 
 人間が成果物を受け入れるときは、TaskをReviewにして詳細画面の「人間受入を記録」を押します。アプリはTaskのownerを`accepted_by`、サーバー時刻を`actual_completed_at`へ保存します。その後、別の操作でDoneへ変更します。受入とDoneの同時送信は拒否されます。現在のアプリには利用者認証がないため、この記録は操作者本人の証明にはなりません。導入前に完了したTaskは`config/task-validation-baseline.json`に限定して経過措置を記録しています。
 

@@ -28,7 +28,7 @@ test('Front Matterと本文を往復できる', () => {
 });
 
 test('Task MarkdownだけをVS Code URLへ変換できる', () => {
-  assert.equal(taskIdForDate(new Date('2026-09-25T03:04:05.006Z')), 'EPF-20260925120405006');
+  assert.equal(taskIdForDate(new Date('2026-09-25T03:04:05.006Z')), 'EPF-20260925-120405-006');
   const uri = vscodeUriForTask('C:\\workspace with space\\epf-management', 'EPF-0001');
   assert.match(uri, /^vscode:\/\/file\//);
   assert.match(uri, /epf-management\/tasks\/EPF-0001\.md$/);
@@ -36,6 +36,8 @@ test('Task MarkdownだけをVS Code URLへ変換できる', () => {
   assert.throws(() => vscodeUriForTask('C:\\workspace\\epf-management', '../README'), /不正なTask ID/);
   const timestampUri = vscodeUriForTask('C:\\workspace\\epf-management', 'EPF-20260925123456789');
   assert.match(timestampUri, /EPF-20260925123456789\.md$/);
+  const formattedTimestampUri = vscodeUriForTask('C:\\workspace\\epf-management', 'EPF-20260925-123456-789');
+  assert.match(formattedTimestampUri, /EPF-20260925-123456-789\.md$/);
 });
 
 test('Task作成・status更新・WBS生成がMarkdownへ反映される', async (context) => {
@@ -51,7 +53,7 @@ test('Task作成・status更新・WBS生成がMarkdownへ反映される', async
     title: '新しいTask', owner: 'tester', priority: 'high', body: BODY_TEMPLATE,
   }, { clock: () => new Date('2026-09-25T03:04:05.006Z') });
   assert.equal(created.id, taskIdForDate(new Date('2026-09-25T03:04:05.006Z')));
-  assert.match(created.id, /^EPF-\d{17}$/);
+  assert.match(created.id, /^EPF-\d{8}-\d{6}-\d{3}$/);
   assert.equal((await listTasks(root)).length, 2);
 
   const updated = await updateCurrent(root, created.id, { status: 'doing', owner: 'agent' });
@@ -96,7 +98,7 @@ async function makeRoot(context) {
 test('画面からのTask作成は共通の雛形を使い、planを書かず、往復できる', async (context) => {
   const root = await makeRoot(context);
   const created = await createTask(root, { title: '画面から', owner: 'tester', requirement: 'REQ-0001', depends_on: 'EPF-0001', status: 'ready' }, { clock: () => new Date('2026-09-25T03:04:05.010Z') });
-  assert.match(created.id, /^EPF-\d{17}$/);
+  assert.match(created.id, /^EPF-\d{8}-\d{6}-\d{3}$/);
   const source = await fs.readFile(path.join(root, 'tasks', `${created.id}.md`), 'utf8');
   assert.doesNotMatch(source, /^plan:/m);
   const parsed = parseMarkdown(source);
@@ -216,8 +218,8 @@ test('独立した作業ツリーで1ミリ秒異なる時刻から別IDを作�
   const first = await createTask(firstRoot, { title: 'A', owner: 'tester' }, { clock: () => new Date('2026-09-25T03:04:05.010Z') });
   const second = await createTask(secondRoot, { title: 'B', owner: 'tester' }, { clock: () => new Date('2026-09-25T03:04:05.011Z') });
   assert.notEqual(first.id, second.id);
-  assert.match(first.id, /^EPF-\d{17}$/);
-  assert.match(second.id, /^EPF-\d{17}$/);
+  assert.match(first.id, /^EPF-\d{8}-\d{6}-\d{3}$/);
+  assert.match(second.id, /^EPF-\d{8}-\d{6}-\d{3}$/);
 });
 
 test('同じ版から同時更新した場合は先の保存を残し、後の保存を拒否する', async (context) => {
