@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export const STATUSES = ['backlog', 'ready', 'doing', 'review', 'done'];
@@ -16,6 +17,51 @@ export const TARGET_REPOSITORIES = TARGET_REPOSITORY_OPTIONS.map((repository) =>
 export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority', 'target_repo'];
 const TASK_BASELINE = 'config/task-validation-baseline.json';
 const TASK_HEADINGS = ['# 背景', '# 目的', '# 完了条件', '# 関連'];
+const TASK_ID_PATTERN = /^EPF-(?:\d{4}|\d{17})$/;
+const taskWriteLocks = new Map();
+
+function taskRevision(source) {
+  return createHash('sha256').update(source, 'utf8').digest('hex');
+}
+
+export function taskIdForDate(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  }).formatToParts(now).filter(({ type }) => type !== 'literal').map(({ type, value }) => [type, value]));
+  return `EPF-${parts.year}${parts.month}${parts.day}${parts.hour}${parts.minute}${parts.second}${String(now.getMilliseconds()).padStart(3, '0')}`;
+}
+
+async function withTaskWriteLock(file, operation) {
+  const key = path.resolve(file);
+  const previous = taskWriteLocks.get(key) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  taskWriteLocks.set(key, current);
+  await previous;
+  try { return await operation(); }
+  finally {
+    release();
+    if (taskWriteLocks.get(key) === current) taskWriteLocks.delete(key);
+  }
+}
+
+async function writeTaskAtomically(file, contents) {
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(temporary, contents, { encoding: 'utf8', flag: 'wx' });
+    await fs.rename(temporary, file);
+  } finally {
+    await fs.rm(temporary, { force: true });
+  }
+}
+
+function taskConflict(latest) {
+  const error = new Error('他の人が先に更新しました。最新を読み直して変更をやり直してください');
+  error.code = 'TASK_CONFLICT';
+  error.latest = latest;
+  return error;
+}
 
 async function validationBaseline(root) {
   try {
@@ -88,7 +134,7 @@ export function parseDependencies(value) {
 
 export function validateTask(task, { legacyDone = new Set(), body } = {}) {
   for (const field of REQUIRED_FIELDS) if (!String(task[field] ?? '').trim()) throw new Error(`${field}は必須です`);
-  if (!/^EPF-\d{4}$/.test(task.id)) throw new Error('idはEPF-0000形式で指定してください');
+  if (!TASK_ID_PATTERN.test(task.id)) throw new Error('idはEPF-0000または日時形式で指定してください');
   if (!STATUSES.includes(task.status)) throw new Error(`statusは${STATUSES.join(', ')}のいずれかです`);
   if (!PRIORITIES.includes(task.priority)) throw new Error(`priorityは${PRIORITIES.join(', ')}のいずれかです`);
   if (!TARGET_REPOSITORIES.includes(task.target_repo)) throw new Error(`target_repoは${TARGET_REPOSITORIES.join(', ')}のいずれかである必要があります`);
@@ -108,7 +154,7 @@ export function validateTask(task, { legacyDone = new Set(), body } = {}) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);
   }
   if (task.start && task.due && task.start > task.due) throw new Error('startはdue以前の日付を指定してください');
-  for (const id of parseDependencies(task.depends_on)) if (!/^EPF-\d{4}$/.test(id)) throw new Error('depends_onはEPF-0000形式をカンマ区切りで指定してください');
+  for (const id of parseDependencies(task.depends_on)) if (!TASK_ID_PATTERN.test(id)) throw new Error('depends_onには有効なTask IDをカンマ区切りで指定してください');
   if (body !== undefined) {
     for (const heading of TASK_HEADINGS) if (!String(body).split(/\r?\n/).includes(heading)) throw new Error(`${heading}の見出しが必要です`);
   }
@@ -192,7 +238,7 @@ export function buildGanttData(tasks, today = new Date().toISOString().slice(0, 
 }
 
 function taskPath(root, id) {
-  if (!/^EPF-\d{4}$/.test(id)) throw new Error('不正なTask IDです');
+  if (!TASK_ID_PATTERN.test(id)) throw new Error('不正なTask IDです');
   return path.join(root, 'tasks', `${id}.md`);
 }
 
@@ -207,13 +253,14 @@ export function vscodeUriForTask(root, id) {
 export async function listTasks(root) {
   const directory = path.join(root, 'tasks');
   const baseline = await validationBaseline(root);
-  const files = (await fs.readdir(directory)).filter((name) => /^EPF-\d{4}\.md$/.test(name)).sort();
+  const files = (await fs.readdir(directory)).filter((name) => /^EPF-(?:\d{4}|\d{17})\.md$/.test(name)).sort();
   const results = [];
   for (const file of files) {
     try {
-      const parsed = parseMarkdown(await fs.readFile(path.join(directory, file), 'utf8'));
+      const source = await fs.readFile(path.join(directory, file), 'utf8');
+      const parsed = parseMarkdown(source);
       validateTask(parsed.data, baseline);
-      results.push({ ...parsed.data, body: parsed.body });
+      results.push({ ...parsed.data, body: parsed.body, revision: taskRevision(source) });
     } catch (error) { results.push({ id: file.replace('.md', ''), invalid: true, error: error.message }); }
   }
   return results;
@@ -227,9 +274,10 @@ export function sortTasksForBoard(tasks) {
 }
 
 export async function readTask(root, id) {
-  const parsed = parseMarkdown(await fs.readFile(taskPath(root, id), 'utf8'));
+  const source = await fs.readFile(taskPath(root, id), 'utf8');
+  const parsed = parseMarkdown(source);
   validateTask(parsed.data, await validationBaseline(root));
-  return { ...parsed.data, body: parsed.body };
+  return { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
 }
 
 const OWNERS_FILE = 'masters/owners.md';
@@ -257,52 +305,68 @@ function ownerNotFoundMessage(owner) {
   return `担当者 ${owner} は担当者マスタ（${OWNERS_FILE}）にありません`;
 }
 
-export async function updateTask(root, id, changes) {
-  const existing = await readTask(root, id);
-  const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan', 'actual_started_at'];
-  const data = { ...existing };
-  delete data.body;
-  delete data.frontend_repo;
-  delete data.backend_repo;
-  for (const key of allowed) if (key in changes) data[key] = String(changes[key] ?? '').trim();
-  const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
-  const contentChanged = body !== existing.body || allowed.some((key) => key !== 'status' && String(data[key] ?? '') !== String(existing[key] ?? ''));
-  if (data.status === 'done' && existing.status !== 'done') {
-    if (!existing.accepted_by || !existing.actual_completed_at) throw new Error('人間の受入を先に別操作で記録してください');
-    if (contentChanged) throw new Error('受入後にTaskを変更した場合は再受入が必要です');
-    data.completed_at = japanDate(existing.actual_completed_at);
-  }
-  if (data.status === 'done' && existing.status === 'done' && existing.accepted_by && contentChanged) throw new Error('完了済みTaskの変更には再受入が必要です');
-  if (data.status !== 'done') data.completed_at = '';
-  if (existing.status === 'done' && data.status !== 'done') {
-    data.accepted_by = '';
-    data.actual_completed_at = '';
-  } else if (data.status !== 'done' && existing.accepted_by && contentChanged) {
-    data.accepted_by = '';
-    data.actual_completed_at = '';
-  }
-  validateTask(data, await validationBaseline(root));
-  // 担当者を変更するときだけマスタと照合する。担当者を変えない更新は、マスタ未登録の値でも失敗させない。
-  if (data.owner !== existing.owner && !(await requireOwners(root)).includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
-  await fs.writeFile(taskPath(root, id), serializeMarkdown(data, body), 'utf8');
-  return { ...data, body };
+export async function updateTask(root, id, changes, expectedRevision) {
+  if (!expectedRevision) throw new Error('Taskを読み直してから更新してください');
+  const file = taskPath(root, id);
+  return withTaskWriteLock(file, async () => {
+    const source = await fs.readFile(file, 'utf8');
+    const parsed = parseMarkdown(source);
+    validateTask(parsed.data, await validationBaseline(root));
+    const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
+    if (expectedRevision !== existing.revision) throw taskConflict(existing);
+    const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan', 'actual_started_at'];
+    const data = { ...existing };
+    delete data.body;
+    delete data.revision;
+    delete data.frontend_repo;
+    delete data.backend_repo;
+    for (const key of allowed) if (key in changes) data[key] = String(changes[key] ?? '').trim();
+    const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
+    const contentChanged = body !== existing.body || allowed.some((key) => key !== 'status' && String(data[key] ?? '') !== String(existing[key] ?? ''));
+    if (data.status === 'done' && existing.status !== 'done') {
+      if (!existing.accepted_by || !existing.actual_completed_at) throw new Error('人間の受入を先に別操作で記録してください');
+      if (contentChanged) throw new Error('受入後にTaskを変更した場合は再受入が必要です');
+      data.completed_at = japanDate(existing.actual_completed_at);
+    }
+    if (data.status === 'done' && existing.status === 'done' && existing.accepted_by && contentChanged) throw new Error('完了済みTaskの変更には再受入が必要です');
+    if (data.status !== 'done') data.completed_at = '';
+    if (existing.status === 'done' && data.status !== 'done') {
+      data.accepted_by = '';
+      data.actual_completed_at = '';
+    } else if (data.status !== 'done' && existing.accepted_by && contentChanged) {
+      data.accepted_by = '';
+      data.actual_completed_at = '';
+    }
+    validateTask(data, await validationBaseline(root));
+    // 担当者を変更するときだけマスタと照合する。
+    if (data.owner !== existing.owner && !(await requireOwners(root)).includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
+    const contents = serializeMarkdown(data, body);
+    await writeTaskAtomically(file, contents);
+    return { ...data, body, revision: taskRevision(contents) };
+  });
 }
 
-export async function acceptTask(root, id) {
-  const existing = await readTask(root, id);
-  if (existing.status !== 'review') throw new Error('受入はreview状態のTaskにだけ記録できます');
-  if (existing.owner === 'unassigned') throw new Error('受入前にTaskのownerを決めてください');
-  const data = { ...existing, accepted_by: existing.owner, actual_completed_at: new Date().toISOString() };
-  delete data.body;
-  validateTask(data, await validationBaseline(root));
-  await fs.writeFile(taskPath(root, id), serializeMarkdown(data, existing.body), 'utf8');
-  return { ...data, body: existing.body };
+export async function acceptTask(root, id, expectedRevision) {
+  if (!expectedRevision) throw new Error('Taskを読み直してから更新してください');
+  const file = taskPath(root, id);
+  return withTaskWriteLock(file, async () => {
+    const source = await fs.readFile(file, 'utf8');
+    const parsed = parseMarkdown(source);
+    validateTask(parsed.data, await validationBaseline(root));
+    const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
+    if (expectedRevision !== existing.revision) throw taskConflict(existing);
+    if (existing.status !== 'review') throw new Error('受入はreview状態のTaskにだけ記録できます');
+    if (existing.owner === 'unassigned') throw new Error('受入前にTaskのownerを決めてください');
+    const data = { ...parsed.data, accepted_by: existing.owner, actual_completed_at: new Date().toISOString() };
+    validateTask(data, await validationBaseline(root));
+    const contents = serializeMarkdown(data, parsed.body);
+    await writeTaskAtomically(file, contents);
+    return { ...data, body: parsed.body, revision: taskRevision(contents) };
+  });
 }
 
-export async function nextTaskId(root) {
-  const tasks = await listTasks(root);
-  const max = tasks.reduce((value, task) => Math.max(value, Number(task.id?.slice(4)) || 0), 0);
-  return `EPF-${String(max + 1).padStart(4, '0')}`;
+export async function nextTaskId() {
+  return taskIdForDate();
 }
 
 export const BODY_TEMPLATE = `# 背景
@@ -335,7 +399,7 @@ export async function listRequirements(root) {
   return results;
 }
 
-export async function createTask(root, input) {
+export async function createTask(root, input, { clock = () => new Date() } = {}) {
   const text = (value) => String(value ?? '').trim();
   const choose = (value, defaultValue) => value || defaultValue;
   const requirement = text(input.requirement);
@@ -357,16 +421,9 @@ export async function createTask(root, input) {
   for (const id of parseDependencies(data.depends_on)) if (!existing.has(id)) throw new Error(`先行Task ${id}は存在しません`);
   const body = text(input.body) || BODY_TEMPLATE;
   validateTask({ id: 'EPF-0000', ...data }, { body });
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const id = await nextTaskId(root);
-    try {
-      await fs.writeFile(taskPath(root, id), serializeMarkdown({ id, ...data }, body), { encoding: 'utf8', flag: 'wx' });
-      return { id, ...data, body };
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error;
-    }
-  }
-  throw new Error('Task IDの採番に失敗しました。再度お試しください');
+  const id = taskIdForDate(clock());
+  await fs.writeFile(taskPath(root, id), serializeMarkdown({ id, ...data }, body), { encoding: 'utf8', flag: 'wx' });
+  return { id, ...data, body };
 }
 
 // today（YYYY-MM-DD）は日程判定の基準日。テストで固定するために指定できる。

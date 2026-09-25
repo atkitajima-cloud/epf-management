@@ -6,7 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
-import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest } from '../lib/git.js';
+import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest, updateConflictedTasks } from '../lib/git.js';
+import { createTask } from '../lib/markdown.js';
 
 const run = promisify(execFile);
 const git = async (cwd, ...args) => (await run('git', args, { cwd })).stdout.trim();
@@ -82,6 +83,12 @@ depends_on: ${values.depends_on || ''}
 # ${values.title}
 `;
 
+async function commitAndPushConfirmed(dir, message, options = {}) {
+  const preview = await getGitPreview(dir);
+  const changes = preview.changes.map(({ status, path: file, fingerprint }) => ({ status, path: file, fingerprint }));
+  return commitAndPush(dir, { message, changes }, options);
+}
+
 test('Git repositoryでない場合は空の履歴を返す', async (context) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'epf-not-git-'));
   context.after(() => fs.rm(dir, { recursive: true, force: true }));
@@ -148,7 +155,7 @@ test('先にpushされていても、Commit & Pushで積み直して共有でき
   await git(a, 'push', '-q');
   await fs.writeFile(path.join(b, 'tasks', 'b.md'), 'B', 'utf8');
 
-  const result = await commitAndPush(b, 'Bの変更', { regenerateWbs: regenerate(b) });
+  const result = await commitAndPushConfirmed(b, 'Bの変更', { regenerateWbs: regenerate(b) });
   assert.equal(result.pushed, true);
   assert.equal(result.integrated, true);
   assert.equal(result.committed, true);
@@ -157,6 +164,85 @@ test('先にpushされていても、Commit & Pushで積み直して共有でき
   assert.equal(await git(remote, 'log', '--merges', '--oneline', 'main'), '');
   assert.equal((await git(remote, 'log', '--oneline', 'main')).split('\n').length, 3);
   await assertNotRebasing(b);
+});
+
+test('共有側で先に更新されたTaskはcommitせず、最新版へ更新してからやり直せる', async (context) => {
+  const { remote, a, b } = await setup(context);
+  const taskPath = 'tasks/EPF-0001.md';
+  const original = '---\nid: EPF-0001\ntitle: original\n---\n';
+  await commitFile(a, taskPath, original, 'Taskを作成');
+  await git(a, 'push', '-q');
+  await git(b, 'pull', '-q', '--ff-only');
+
+  const localEdit = '---\nid: EPF-0001\ntitle: Bの変更\n---\n';
+  await fs.writeFile(path.join(b, taskPath), localEdit, 'utf8');
+  const unrelatedPath = path.join(b, 'tasks', 'keep.md');
+  await fs.writeFile(unrelatedPath, '別ファイルの変更\n', 'utf8');
+  const remoteEdit = '---\nid: EPF-0001\ntitle: Aの変更\n---\n';
+  await commitFile(a, taskPath, remoteEdit, 'Aが先に更新');
+  await git(a, 'push', '-q');
+
+  const result = await commitAndPushConfirmed(b, 'Bの変更');
+  assert.equal(result.outcome, 'task-conflict');
+  assert.equal(result.committed, false);
+  assert.equal(result.pushed, false);
+  assert.deepEqual(result.files, [taskPath]);
+  assert.equal(await fs.readFile(path.join(b, taskPath), 'utf8'), localEdit);
+  assert.equal(await git(b, 'log', '-1', '--format=%s'), 'Taskを作成');
+
+  const localTask = (await getGitPreview(b)).changes.find((item) => item.path === taskPath);
+  const update = await updateConflictedTasks(b, [{ id: 'EPF-0001', fingerprint: localTask.fingerprint }]);
+  assert.deepEqual(update.updated, ['EPF-0001']);
+  assert.equal(await fs.readFile(path.join(b, taskPath), 'utf8'), remoteEdit);
+  assert.equal(await fs.readFile(unrelatedPath, 'utf8'), '別ファイルの変更\n');
+  assert.equal((await getGitStatus(b)).behind, 0);
+  assert.deepEqual((await getGitStatus(b)).changes.map((item) => item.path), ['tasks/keep.md']);
+
+  await fs.rm(unrelatedPath);
+  await fs.writeFile(path.join(b, taskPath), '---\nid: EPF-0001\ntitle: やり直した変更\n---\n', 'utf8');
+  const retried = await commitAndPushConfirmed(b, '更新後にやり直し');
+  assert.equal(retried.pushed, true);
+  assert.equal(await git(remote, 'show', `main:${taskPath}`), '---\nid: EPF-0001\ntitle: やり直した変更\n---');
+});
+
+test('別々のcloneで1ミリ秒異なる時刻に作成したTaskは異なるIDになる', async (context) => {
+  const { a, b } = await setup(context);
+  for (const root of [a, b]) {
+    await fs.mkdir(path.join(root, 'masters'));
+    await fs.writeFile(path.join(root, 'masters', 'owners.md'), '- tester\n', 'utf8');
+  }
+  const first = await createTask(a, { title: 'A', owner: 'tester' }, { clock: () => new Date('2026-09-25T03:04:05.010Z') });
+  const second = await createTask(b, { title: 'B', owner: 'tester' }, { clock: () => new Date('2026-09-25T03:04:05.011Z') });
+  assert.equal(first.id, 'EPF-20260925120405010');
+  assert.equal(second.id, 'EPF-20260925120405011');
+  assert.notEqual(first.id, second.id);
+});
+
+test('確認後にファイル内容が変わったらcommitしない', async (context) => {
+  const { b } = await setup(context);
+  const file = path.join(b, 'tasks', 'changed.md');
+  await fs.writeFile(file, '確認した内容\n', 'utf8');
+  const preview = await getGitPreview(b);
+  const changes = preview.changes.map(({ status, path: filePath, fingerprint }) => ({ status, path: filePath, fingerprint }));
+  await fs.writeFile(file, '確認後の内容\n', 'utf8');
+  await assert.rejects(commitAndPush(b, { message: '確認済み', changes }), /確認後に変更内容が変わりました/);
+  assert.equal(await git(b, 'log', '-1', '--format=%s'), '初期状態');
+  assert.equal(await fs.readFile(file, 'utf8'), '確認後の内容\n');
+});
+
+test('確認後に追加されたstage変更はcommitしない', async (context) => {
+  const { b } = await setup(context);
+  const confirmedFile = path.join(b, 'tasks', 'confirmed.md');
+  const unconfirmedFile = path.join(b, 'tasks', 'unconfirmed.md');
+  await fs.writeFile(confirmedFile, '確認済み\n', 'utf8');
+  const preview = await getGitPreview(b);
+  const changes = preview.changes.map(({ status, path: file, fingerprint }) => ({ status, path: file, fingerprint }));
+  await fs.writeFile(unconfirmedFile, '未確認\n', 'utf8');
+  await git(b, 'add', '--', 'tasks/unconfirmed.md');
+  await assert.rejects(commitAndPush(b, { message: '確認済み', changes }), /確認後に変更内容が変わりました/);
+  assert.equal(await git(b, 'log', '-1', '--format=%s'), '初期状態');
+  assert.equal(await git(b, 'diff', '--cached', '--name-only'), 'tasks/unconfirmed.md');
+  assert.equal(await fs.readFile(unconfirmedFile, 'utf8'), '未確認\n');
 });
 
 test('commit済みでpushできていない状態は、変更がなくてもCommit & Pushで共有できる', async (context) => {
@@ -169,7 +255,7 @@ test('commit済みでpushできていない状態は、変更がなくてもComm
   assert.equal(preview.ahead, 1);
   assert.equal(preview.changes.length, 0);
   assert.equal(preview.canCommitPush, true);
-  const result = await commitAndPush(b, '', { regenerateWbs: regenerate(b) });
+  const result = await commitAndPushConfirmed(b, '', { regenerateWbs: regenerate(b) });
   assert.equal(result.pushed, true);
   assert.equal(result.committed, false);
   assert.ok((await git(remote, 'ls-tree', '-r', '--name-only', 'main')).includes('tasks/b.md'));
@@ -204,7 +290,7 @@ test('同じ場所を変更して競合した場合は、元の状態に戻し�
   await git(a, 'push', '-q');
   await fs.writeFile(path.join(b, 'tasks', 'base.md'), 'line1\nBの変更\nline3\n', 'utf8');
 
-  const result = await commitAndPush(b, 'Bの変更', { regenerateWbs: regenerate(b) });
+  const result = await commitAndPushConfirmed(b, 'Bの変更', { regenerateWbs: regenerate(b) });
   assert.equal(result.pushed, false);
   assert.equal(result.outcome, 'conflict');
   assert.deepEqual(result.files, ['tasks/base.md']);
@@ -225,7 +311,7 @@ test('views/wbs.mdだけが競合した場合は、Taskから再生成して自�
   await fs.writeFile(path.join(b, 'tasks', 'b.md'), 'B', 'utf8');
   await regenerate(b)();
 
-  const result = await commitAndPush(b, 'Bの変更', { regenerateWbs: regenerate(b) });
+  const result = await commitAndPushConfirmed(b, 'Bの変更', { regenerateWbs: regenerate(b) });
   assert.equal(result.pushed, true);
   assert.equal(result.integrated, true);
   assert.equal(await git(remote, 'show', 'main:views/wbs.md'), 'WBS:a.md,b.md,base.md');
@@ -242,24 +328,25 @@ test('wbs.md以外も競合した場合は、自動解決せず元に戻す', as
   await fs.writeFile(path.join(b, 'tasks', 'base.md'), 'line1\nBの変更\nline3\n', 'utf8');
   await fs.writeFile(path.join(b, 'views', 'wbs.md'), 'Bのwbs\n', 'utf8');
 
-  const result = await commitAndPush(b, 'Bの変更', { regenerateWbs: regenerate(b) });
+  const result = await commitAndPushConfirmed(b, 'Bの変更', { regenerateWbs: regenerate(b) });
   assert.equal(result.outcome, 'conflict');
   assert.deepEqual([...result.files].sort(), ['tasks/base.md', 'views/wbs.md']);
   await assertNotRebasing(b);
   assert.equal(await fs.readFile(path.join(b, 'views', 'wbs.md'), 'utf8'), 'Bのwbs\n');
 });
 
-test('共有側の取得に失敗した場合は、commitだけ残してpushしない', async (context) => {
+test('共有側の取得に失敗した場合はcommitせず、ローカル変更を残す', async (context) => {
   const { base, b } = await setup(context);
   await git(b, 'remote', 'set-url', 'origin', path.join(base, 'missing.git'));
   await fs.writeFile(path.join(b, 'tasks', 'b.md'), 'B', 'utf8');
 
-  const result = await commitAndPush(b, 'Bの変更');
+  const result = await commitAndPushConfirmed(b, 'Bの変更');
   assert.equal(result.outcome, 'fetch-failed');
   assert.equal(result.pushed, false);
-  assert.equal(result.committed, true);
-  assert.equal(await git(b, 'log', '-1', '--format=%s'), 'Bの変更');
-  await assertNotRebasing(b);
+  assert.equal(result.committed, false);
+  assert.equal(await git(b, 'log', '-1', '--format=%s'), '初期状態');
+  assert.equal(await fs.readFile(path.join(b, 'tasks', 'b.md'), 'utf8'), 'B');
+  assert.equal(await git(b, 'status', '--porcelain'), '?? tasks/b.md');
 });
 
 test('Git状態は、共有していないcommitと共有側の更新の件数を返す', async (context) => {

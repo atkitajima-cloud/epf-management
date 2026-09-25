@@ -28,7 +28,11 @@ async function api(url, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(data.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -124,10 +128,16 @@ function wireBoardEvents() {
       task.status = column.dataset.status;
       renderBoard();
       try {
-        await api(`/api/tasks/${task.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: task.status }) });
+        const { task: updated } = await api(`/api/tasks/${task.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: task.status, revision: task.revision }) });
+        Object.assign(task, updated);
         toast(`${task.id} を ${task.status} に更新しました`);
         loadGit();
       } catch (error) {
+        if (error.status === 409) {
+          await loadTasks();
+          toast('他の人が先に更新しました。最新の状態です。もう一度変更してください');
+          return;
+        }
         task.status = previous;
         renderBoard();
         toast(error.message);
@@ -158,6 +168,7 @@ async function openTask(id) {
     taskForm.elements.target_repo.innerHTML = repositoryOptions(task.target_repo);
     document.querySelector('#dialogTaskId').textContent = task.id;
     document.querySelector('#openTaskInVscode').href = vscodeUri;
+    taskForm.elements.revision.value = task.revision;
     for (const field of ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'body']) {
       taskForm.elements[field].value = task[field] || '';
     }
@@ -183,6 +194,7 @@ taskForm.addEventListener('submit', async (event) => {
     toast(`${id} を保存しました`);
   } catch (error) {
     document.querySelector('#saveStatus').textContent = error.message;
+    if (error.status === 409 && window.confirm('他の人が先に更新しました。最新の内容を読み直しますか？\n読み直すと入力中の変更は失われます。')) await openTask(id);
   } finally { setBusy(button, false); }
 });
 const createDialog = document.querySelector('#createDialog');
@@ -196,13 +208,14 @@ document.querySelector('#acceptTaskButton').addEventListener('click', async () =
   const button = document.querySelector('#acceptTaskButton');
   setBusy(button, true);
   try {
-    await api(`/api/tasks/${id}/accept`, { method: 'POST' });
+    await api(`/api/tasks/${id}/accept`, { method: 'POST', body: JSON.stringify({ revision: taskForm.elements.revision.value }) });
     dialog.close();
     await Promise.all([loadTasks(), loadGit()]);
     await openTask(id);
     toast(`${id} の受入を記録しました。完了への変更は別操作で行ってください`);
   } catch (error) {
     document.querySelector('#saveStatus').textContent = error.message;
+    if (error.status === 409 && window.confirm('他の人が先に更新しました。最新の内容を読み直しますか？\n読み直すと入力中の変更は失われます。')) await openTask(id);
   } finally { setBusy(button, false); }
 });
 
@@ -320,7 +333,7 @@ async function runGitOperation(button, busyText, action) {
 // 自動では取り込めなかった場合（他の人と同じ場所を変更した場合）の案内。自分の変更は元の状態に戻してある。
 function alertConflict(result) {
   const files = result.files || [];
-  const hint = files.some((file) => /^tasks\/EPF-\d{4}\.md$/.test(file))
+  const hint = files.some((file) => /^tasks\/EPF-(?:\d{4}|\d{17})\.md$/.test(file))
     ? '\n\n同じ番号のTaskを、別々に作成した場合にも起こります。Taskを作成する前にPullすると避けられます。' : '';
   window.alert(`他の人の変更と同じ場所を変更していたため、自動では取り込めませんでした。\n自分の変更は失われていません（操作前の状態に戻しました）。\n\n対象ファイル:\n${files.join('\n')}${hint}\n\n詳しい人に相談してください。`);
 }
@@ -355,8 +368,21 @@ document.querySelector('#commitPushButton').addEventListener('click', async (eve
       if (commitMessage === null) return;
     } else if (!window.confirm(`pushしていないcommitが${preview.ahead}件あります。他の人の更新があれば取り込んでから、送信します。続行しますか？`)) return;
     await runGitOperation(button, '送信中...', async () => {
-      const result = await api('/api/git/commit-push', { method: 'POST', body: JSON.stringify({ message: commitMessage }) });
+      const changes = preview.changes.map(({ status, path, fingerprint }) => ({ status, path, fingerprint }));
+      const result = await api('/api/git/commit-push', { method: 'POST', body: JSON.stringify({ message: commitMessage, changes }) });
       const saved = result.committed ? `${result.commit} をコミットしました。` : '';
+      if (result.outcome === 'task-conflict') {
+        const files = result.files || [];
+        const localChanges = preview.changes.filter((item) => files.includes(item.path));
+        const update = window.confirm(`他の人が先に次のTaskを共有しました。\n${files.join('\n')}\n\n最新版に更新して、変更をやり直しますか？\n更新すると、この作業ツリーに保存した該当Taskの変更は失われます。`);
+        if (!update) return toast('変更を残しました。共有はしていません');
+        await api('/api/git/update-conflicted-tasks', {
+          method: 'POST',
+          body: JSON.stringify({ files: localChanges.map(({ path, fingerprint }) => ({ id: path.match(/EPF-(?:\d{4}|\d{17})/)?.[0], fingerprint })) })
+        });
+        await Promise.all([loadTasks(), loadGit()]);
+        return toast('最新版に更新しました。必要な変更をやり直してください');
+      }
       if (result.outcome === 'conflict') return alertConflict(result);
       if (result.outcome === 'fetch-failed') return toast(`${saved}共有側を確認できなかったため、送信していません: ${result.error}`);
       if (result.outcome === 'error') return toast(`${saved}${result.error}`);
@@ -387,5 +413,5 @@ function toast(message) {
 
 const taskFromGantt = new URLSearchParams(window.location.search).get('task');
 Promise.all([loadTasks(), loadGit(), loadHistory()]).then(() => {
-  if (/^EPF-\d{4}$/.test(taskFromGantt || '')) openTask(taskFromGantt);
+  if (/^EPF-(?:\d{4}|\d{17})$/.test(taskFromGantt || '')) openTask(taskFromGantt);
 }).catch((error) => toast(error.message));

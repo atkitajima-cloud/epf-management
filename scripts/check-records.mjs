@@ -59,6 +59,15 @@ function relativeName(file) {
   return path.relative(workspace, file).replaceAll('\\', '/');
 }
 
+function linkedPlan(source) {
+  if (!source) return null;
+  const links = [...source.matchAll(/\]\(([^)]+\/(?:docs\/exec-plans\/(active|completed)\/[^)]+|plans\/PLAN-\d{4}[^)]*)\.md)\)/g)];
+  const managementPlanId = source.match(/^plan:\s*(PLAN-\d{4})\s*$/m)?.[1];
+  return (managementPlanId && links.find((match) => match[1].includes(`/plans/${managementPlanId}`)))
+    || links.find((match) => match[1].includes('/docs/exec-plans/'))
+    || null;
+}
+
 function activeLinks(source) {
   const blank = (text) => text.replace(/[^\n]/g, ' ');
   const withoutFences = source.replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?^ {0,3}\1[ \t]*$/gm, blank);
@@ -101,7 +110,7 @@ for (const repo of repos) {
 }
 
 for (const name of indexed.get('epf-management')) {
-  if (!/^tasks\/EPF-\d{4}\.md$/.test(name)) continue;
+  if (!/^tasks\/EPF-(?:\d{4}|\d{17})\.md$/.test(name)) continue;
   const source = read('epf-management', name);
   if (source === null) continue;
   try {
@@ -123,7 +132,7 @@ for (const name of indexed.get('epf-management')) {
         }
       }
     }
-    const plan = task.body.match(/\]\(([^)]+\/docs\/exec-plans\/(active|completed)\/[^)]+\.md)\)/);
+    const plan = linkedPlan(source);
     if (plan) {
       const planFile = path.resolve(workspace, 'epf-management', 'tasks', plan[1]);
       if (task.data.status === 'done' && plan[2] === 'active') errors.push(`${id}: doneだがExecPlanがactive`);
@@ -135,18 +144,18 @@ for (const name of indexed.get('epf-management')) {
 const implementation = staged && currentRepo && [...stagedPaths].some((name) => /\.(?:js|mjs|cjs|ts|tsx|jsx|html|css|json|ya?ml|py|sh|go|java|cs|tf)$/.test(name) && !name.startsWith('docs/'));
 if (implementation) {
   const taskId = process.env.EPF_TASK_ID;
-  if (!/^EPF-\d{4}$/.test(taskId || '')) errors.push('実装差分にはEPF_TASK_IDが必要です');
+  if (!/^EPF-(?:\d{4}|\d{17})$/.test(taskId || '')) errors.push('実装差分にはEPF_TASK_IDが必要です');
   else {
     const source = read('epf-management', `tasks/${taskId}.md`);
-    const planLink = source?.match(/\]\(([^)]+\/docs\/exec-plans\/active\/[^)]+\.md)\)/);
-    if (!planLink) errors.push(`${taskId}: activeなExecPlanへのTaskリンクがありません`);
+    const planLink = linkedPlan(source);
+    if (!planLink) errors.push(`${taskId}: activeなExecPlanまたはPlanへのTaskリンクがありません`);
     else {
       const file = path.resolve(workspace, 'epf-management', 'tasks', planLink[1]);
       const name = path.relative(projectRoot, file).replaceAll('\\', '/');
       const plan = staged && currentRepo === 'epf-project' && indexed.get('epf-project').has(name)
         ? git('epf-project', ['show', `:${name}`])
         : fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-      if (!/^- 計画承認状態: approved$/m.test(plan)) errors.push(`${taskId}: ExecPlanが人間承認済みではありません`);
+      if (!/^- 計画承認状態: approved$/m.test(plan)) errors.push(`${taskId}: 計画が人間承認済みではありません`);
     }
   }
 }

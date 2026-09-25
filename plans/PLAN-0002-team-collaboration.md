@@ -18,7 +18,7 @@ EPF Managementをチーム内で共同利用できるようにする。ただし
 - Taskの作成・更新はMarkdownファイルに直接書き込まれる。
 - Git状態は表示のみで、commit / pull / pushはアプリから行わない。
 - Codex Adapterはローカルにログイン済みのCodex CLIとユーザー設定を利用する。
-- Task IDは現在の最大連番から採番するため、複数ブランチでの同時作成に衝突余地がある。
+- 当初はTask IDを最大連番から採番していた。採番方式は[PLAN-0018](PLAN-0018-task-concurrent-safety.md)で日時形式に更新した。
 
 ## 第一候補の運用モデル
 
@@ -105,13 +105,13 @@ Git remote (Markdownの共有履歴)
 
 ## 4. Task ID採番の共同運用
 
-以下を調査・決定した上で実装する。既存の `EPF-0000` 形式を無断で変更しない。
+採番方式は後続の[PLAN-0018](PLAN-0018-task-concurrent-safety.md)で更新した。新しいTask IDは日本時間の年月日時分秒＋ミリ秒3桁とし、既存Task IDは維持する。
 
 - 案A: `tasks/sequence.md` をMarkdownの正本として追加し、採番更新もGitレビュー対象にする。
 - 案B: Taskを一意な仮IDで作成し、`main` へpushする前に正式IDを割り当てる。
 - 案C: メンバーまたはブランチに採番範囲を割り当てる。
 
-推奨は案Aである。ファイルはDBではなくMarkdownであり、採番の意図・最終採番値・更新規則を追跡できる。一方で同時作成時はGit競合が起こり得るため、作成前のpullと`main`へpushする前の再採番手順を自動検証・運用ガイドの両方で支える。
+上記3案は採用しない。PLAN-0018で決めた日時形式を使い、既存IDは維持する。同じミリ秒の衝突対応は追加しない。
 
 ## 5. 再読込と派生View
 
@@ -181,8 +181,8 @@ Git remote (Markdownの共有履歴)
 
 1. 共有方式は、各メンバーが同じGitリモートをcloneし、ローカルでアプリを起動する方式とする。共有ホスト型は対象外とする。
 2. GitHubの非公開リポジトリを利用し、少人数のメンバーが `main` を直接共有する。作業前にPullし、意図した変更の確認後にcommit / pushする。
-3. Task IDは案Aを採用し、`tasks/sequence.md` をMarkdownの正本として追加する。既存の `EPF-0000` 形式を維持する。
-4. 想定人数は数人規模とする。同一Taskの同時編集は起こり得るため、revisionによる競合検出を実装する。
+3. Task IDは当初案A（`tasks/sequence.md`）を採用したが、[PLAN-0018](PLAN-0018-task-concurrent-safety.md)により日時形式へ変更する。既存Task IDは維持する。
+4. 想定人数は数人規模とする。同じアプリ内ではrevisionで古い保存を拒否する。別cloneではCommit & Push前に同じTaskの更新を検出し、後からの変更は最新版を取得してやり直す。
 5. 検証はローカルで実行する。`npm test` とMarkdown検証コマンドを使い、CIは導入しない。
 6. メンバー全員がCodexを利用する。MockはCodex CLIの障害時に画面を起動・確認するためのフォールバックとしてだけ残す。
 7. 任意の人間操作後に使える明示承認付き `Commit & Push` を採用する。変更ファイルとcommit messageを確認してから実行する。

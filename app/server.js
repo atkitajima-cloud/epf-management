@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, TARGET_REPOSITORY_OPTIONS, updateTask, vscodeUriForTask } from './lib/markdown.js';
-import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest } from './lib/git.js';
+import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest, updateConflictedTasks } from './lib/git.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(appDir, '..');
@@ -48,7 +48,7 @@ async function handleApi(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/requirements') {
     return sendJson(response, 200, { requirements: await listRequirements(root), bodyTemplate: BODY_TEMPLATE });
   }
-  const taskMatch = url.pathname.match(/^\/api\/tasks\/(EPF-\d{4})$/);
+  const taskMatch = url.pathname.match(/^\/api\/tasks\/(EPF-(?:\d{4}|\d{17}))$/);
   if (request.method === 'GET' && taskMatch) {
     return sendJson(response, 200, {
       task: await readTask(root, taskMatch[1]),
@@ -56,16 +56,18 @@ async function handleApi(request, response, url) {
     });
   }
   if (request.method === 'PUT' && taskMatch) {
-    return sendJson(response, 200, { task: await updateTask(root, taskMatch[1], await readJson(request)) });
+    const { revision, ...changes } = await readJson(request);
+    return sendJson(response, 200, { task: await updateTask(root, taskMatch[1], changes, revision) });
   }
-  if (request.method === 'POST' && url.pathname.match(/^\/api\/tasks\/EPF-\d{4}\/accept$/)) {
+  if (request.method === 'POST' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17})\/accept$/)) {
     const id = url.pathname.split('/')[3];
-    return sendJson(response, 200, { task: await acceptTask(root, id) });
+    const { revision } = await readJson(request);
+    return sendJson(response, 200, { task: await acceptTask(root, id, revision) });
   }
-  if (request.method === 'PATCH' && url.pathname.match(/^\/api\/tasks\/EPF-\d{4}\/status$/)) {
+  if (request.method === 'PATCH' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17})\/status$/)) {
     const id = url.pathname.split('/')[3];
-    const { status } = await readJson(request);
-    return sendJson(response, 200, { task: await updateTask(root, id, { status }) });
+    const { status, revision } = await readJson(request);
+    return sendJson(response, 200, { task: await updateTask(root, id, { status }, revision) });
   }
   if (request.method === 'POST' && url.pathname === '/api/wbs') {
     return sendJson(response, 200, await generateWbs(root));
@@ -86,8 +88,11 @@ async function handleApi(request, response, url) {
     return sendJson(response, 200, await pullLatest(root, { regenerateWbs }));
   }
   if (request.method === 'POST' && url.pathname === '/api/git/commit-push') {
-    const { message } = await readJson(request);
-    return sendJson(response, 200, await commitAndPush(root, message, { regenerateWbs }));
+    const input = await readJson(request);
+    return sendJson(response, 200, await commitAndPush(root, input, { regenerateWbs }));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/git/update-conflicted-tasks') {
+    return sendJson(response, 200, await updateConflictedTasks(root, (await readJson(request)).files));
   }
   return false;
 }
@@ -116,8 +121,8 @@ const server = http.createServer(async (request, response) => {
       await serveStatic(response, url);
     }
   } catch (error) {
-    const status = error.code === 'ENOENT' ? 404 : 400;
-    sendJson(response, status, { error: error.message });
+    const status = error.code === 'ENOENT' ? 404 : error.code === 'TASK_CONFLICT' ? 409 : 400;
+    sendJson(response, status, { error: error.message, ...(error.latest ? { latest: error.latest } : {}) });
   }
 });
 

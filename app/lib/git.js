@@ -10,6 +10,7 @@ const MAX_WBS_RESOLUTIONS = 20;
 const NETWORK_TIMEOUT_MS = 60000;
 const HISTORY_LIMIT = 20;
 const TASK_FIELDS = ['title', 'status', 'owner', 'priority', 'start', 'due', 'requirement', 'depends_on'];
+const TASK_FILE_PATTERN = /^tasks\/(EPF-(?:\d{4}|\d{17}))\.md$/;
 
 async function git(root, args, { timeout } = {}) {
   // エディタや認証の入力待ちで止まらないようにする。
@@ -47,18 +48,73 @@ async function fetchUpstream(root) {
   } catch (error) { return { ok: false, error: message(error) }; }
 }
 
+async function remoteChangedPaths(root) {
+  const { stdout } = await git(root, ['diff', '--name-only', '-z', 'HEAD', '@{u}']);
+  return new Set(stdout.split('\0').filter(Boolean));
+}
+
+function taskIdsIn(paths) {
+  return paths.flatMap((file) => {
+    const match = file.match(TASK_FILE_PATTERN);
+    return match ? [{ id: match[1], file }] : [];
+  });
+}
+
+// 共有側で同じTaskが先に更新されていたら、localの変更を残したままCommitを止める。
+export async function updateConflictedTasks(root, files) {
+  if (!Array.isArray(files) || !files.length) throw new Error('更新するTaskがありません');
+  const beforeFetch = await getGitPreview(root);
+  if (!beforeFetch.upstream) throw new Error('upstreamが設定されていません');
+  const fetched = await fetchUpstream(root);
+  if (!fetched.ok) throw new Error(`共有側を確認できませんでした: ${fetched.error}`);
+  const preview = await getGitPreview(root);
+  if (preview.ahead > 0) throw new Error('pushしていないcommitがあるため、自動更新できません。Gitで確認してください');
+  const remoteChanges = await remoteChangedPaths(root);
+  const tasks = files.map((item) => {
+    const match = String(item?.id || '').match(/^(EPF-(?:\d{4}|\d{17}))$/);
+    if (!match) throw new Error('不正なTask IDです');
+    return { id: match[1], file: `tasks/${match[1]}.md`, fingerprint: item.fingerprint };
+  });
+  if (new Set(tasks.map((item) => item.id)).size !== tasks.length) throw new Error('Taskが重複しています');
+  const requestedFiles = new Set(tasks.map((item) => item.file));
+  const otherOverlaps = preview.changes.filter((change) => remoteChanges.has(change.path) && !requestedFiles.has(change.path));
+  if (otherOverlaps.length) throw new Error(`他の変更も共有側と重なっています: ${otherOverlaps.map((item) => item.path).join(', ')}`);
+  for (const task of tasks) {
+    const { id, file } = task;
+    if (!remoteChanges.has(file)) throw new Error(`${id} は共有側で更新されていません。画面を更新してください`);
+    const local = preview.changes.find((change) => change.path === file);
+    if (!local || local.fingerprint !== task.fingerprint) throw new Error(`${id} のローカル変更が変わりました。画面を更新してください`);
+    if (local.status[0] !== ' ' || local.status[1] !== 'M') throw new Error(`${id} はstage済みまたは作成状態のため、自動更新できません。Gitで確認してください`);
+    try { await git(root, ['cat-file', '-e', `@{u}:${file}`]); }
+    catch { throw new Error(`${id} は共有側から削除されています。Gitで確認してください`); }
+  }
+  await git(root, ['restore', '--source=@{u}', '--staged', '--worktree', '--', ...tasks.map((item) => item.file)]);
+  await git(root, ['merge', '--ff-only', '@{u}']);
+  return { updated: tasks.map((item) => item.id) };
+}
+
 export async function getGitStatus(root, { fetch = false } = {}) {
   try {
     await git(root, ['rev-parse', '--is-inside-work-tree']);
     const fetched = fetch ? await fetchUpstream(root) : null;
     const [{ stdout }, branch, upstream, counts] = await Promise.all([
-      git(root, ['status', '--porcelain=v1']),
+      git(root, ['status', '--porcelain=v1', '--untracked-files=all']),
       optional(root, ['branch', '--show-current']),
       optional(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']),
       aheadBehind(root)
     ]);
-    const changes = stdout.replace(/\r/g, '').trimEnd().split('\n').filter(Boolean)
-      .map((line) => ({ status: line.slice(0, 2), path: line.slice(3) }));
+    const changes = await Promise.all(stdout.replace(/\r/g, '').trimEnd().split('\n').filter(Boolean)
+      .map(async (line) => {
+        const status = line.slice(0, 2);
+        const file = line.slice(3);
+        if (status.includes('R') || status.includes('C') || file.includes(' -> ')) {
+          return { status, path: file, fingerprint: null, unsupported: true };
+        }
+        const target = path.resolve(root, file);
+        if (!target.startsWith(`${path.resolve(root)}${path.sep}`)) throw new Error('リポジトリ外のファイルはcommitできません');
+        const fingerprint = status.includes('D') ? null : (await git(root, ['hash-object', `--path=${file}`, '--', file])).stdout.trim();
+        return { status, path: file, fingerprint };
+      }));
     return {
       isRepository: true, branch, upstream: upstream || null, changes, ...counts,
       fetchError: fetched && !fetched.ok ? fetched.error : null
@@ -86,7 +142,7 @@ async function taskAt(root, revision, file) {
 }
 
 async function taskChange(root, hash, status, file) {
-  const match = file.match(/^tasks\/(EPF-\d{4})\.md$/);
+  const match = file.match(/^tasks\/(EPF-(?:\d{4}|\d{17}))\.md$/);
   if (!match || !['A', 'M'].includes(status[0])) return null;
   const [before, after] = await Promise.all([
     status[0] === 'A' ? null : taskAt(root, `${hash}^`, file),
@@ -216,11 +272,36 @@ export async function commitAndPush(root, input, { regenerateWbs } = {}) {
   if (preview.conflicts) throw new Error('Git競合を解消してからCommit & Pushしてください');
   if (!preview.upstream) throw new Error('upstreamが設定されていません');
   if (!hasChanges && preview.ahead === 0) throw new Error('送信する変更はありません');
+  const baseHead = await optional(root, ['rev-parse', 'HEAD']);
   if (hasChanges) {
-    const commitMessage = String(input || '').trim();
+    if (!Array.isArray(input?.changes)) throw new Error('確認した変更一覧がありません。画面を更新して再確認してください');
+    if (preview.changes.some((item) => item.unsupported)) throw new Error('名前変更または特殊なファイルの変更があります。Gitで確認してください');
+    const expected = preview.changes.map(({ status, path: file, fingerprint }) => ({ status, path: file, fingerprint }));
+    if (JSON.stringify(input.changes) !== JSON.stringify(expected)) throw new Error('確認後に変更内容が変わりました。画面を更新して再確認してください');
+    const commitMessage = String(input.message || '').trim();
     if (!commitMessage || /[\r\n]/.test(commitMessage) || commitMessage.length > 200) throw new Error('コミットメッセージは改行なし200文字以内で入力してください');
+    const fetched = await fetchUpstream(root);
+    if (!fetched.ok) return {
+      committed: false, pushed: false, branch: preview.branch, upstream: preview.upstream,
+      outcome: 'fetch-failed', error: fetched.error
+    };
+    const remoteChanges = await remoteChangedPaths(root);
+    const conflicts = taskIdsIn(expected.filter((item) => remoteChanges.has(item.path)).map((item) => item.path));
+    if (conflicts.length) return {
+      committed: false, pushed: false, branch: preview.branch, upstream: preview.upstream,
+      outcome: 'task-conflict', files: conflicts.map((item) => item.file)
+    };
     try {
-      await git(root, ['add', '-A']);
+      const files = expected.map(({ path: file }) => file);
+      await git(root, ['add', '--', ...files]);
+      for (const item of expected) {
+        const stagedHash = await optional(root, ['rev-parse', `:${item.path}`]);
+        if (item.fingerprint === null ? Boolean(stagedHash) : stagedHash !== item.fingerprint) {
+          throw new Error('確認後に変更内容が変わりました');
+        }
+      }
+      const stagedFiles = (await git(root, ['diff', '--cached', '--name-only', '-z'])).stdout.split('\0').filter(Boolean).sort();
+      if (JSON.stringify(stagedFiles) !== JSON.stringify([...files].sort())) throw new Error('確認していない変更がすでにstageされています');
       await git(root, ['commit', '-m', commitMessage]);
     } catch (error) { throw new Error(`Commitに失敗しました: ${message(error)}`); }
   }
@@ -233,7 +314,15 @@ export async function commitAndPush(root, input, { regenerateWbs } = {}) {
   // 取得からpushまでの間に別の人がpushした場合に備えて、1回だけやり直す。
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const sync = await integrateUpstream(root, regenerateWbs);
-    if (!['up-to-date', 'integrated'].includes(sync.outcome)) return summary({ pushed: false, ...sync });
+    if (!['up-to-date', 'integrated'].includes(sync.outcome)) {
+      const conflicts = sync.outcome === 'conflict' ? taskIdsIn(sync.files || []) : [];
+      if (hasChanges && conflicts.length) {
+        // Fetchとの間に同じTaskが更新された場合、新しく作ったcommitだけを外して編集を残す。
+        await git(root, ['reset', '--mixed', baseHead]);
+        return summary({ committed: false, pushed: false, outcome: 'task-conflict', files: conflicts.map((item) => item.file) });
+      }
+      return summary({ pushed: false, ...sync });
+    }
     integrated ||= sync.outcome === 'integrated';
     try {
       await git(root, ['push'], { timeout: NETWORK_TIMEOUT_MS });

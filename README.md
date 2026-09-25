@@ -108,6 +108,8 @@ Readyにする条件はアプリでは確認しません。Doneへの変更に�
 
 Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `target_repo` です。`target_repo` は `epf-project`, `epf-management`, `epf-backend`, `epf-frontend`, `common` のいずれかです。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。`done`には`completed_at`（YYYY-MM-DD）、`accepted_by`、`actual_completed_at`が必要です。`actual_started_at`と`actual_completed_at`はタイムゾーン付きISO 8601形式で記録します。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
 
+新しいTask IDは、日本時間の年月日時分秒とミリ秒3桁を使います（例: `EPF-20260925120405006`）。既存の4桁IDはそのまま使えます。
+
 人間が成果物を受け入れるときは、TaskをReviewにして詳細画面の「人間受入を記録」を押します。アプリはTaskのownerを`accepted_by`、サーバー時刻を`actual_completed_at`へ保存します。その後、別の操作でDoneへ変更します。受入とDoneの同時送信は拒否されます。現在のアプリには利用者認証がないため、この記録は操作者本人の証明にはなりません。導入前に完了したTaskは`config/task-validation-baseline.json`に限定して経過措置を記録しています。
 
 ## Taskの作成
@@ -135,14 +137,15 @@ APIは `GET /api/owners`（担当者IDの一覧）です。
 画面のボタンだけで、他の人の更新の取り込みと、自分の変更の共有ができます。
 
 - **Commit & Push**: 変更をcommitし、共有側の最新を取得して、自分の変更をその上に置き直してから送信します。他の人が先に送信していても、同じ場所を変更していなければ、1回押すだけで共有されます。
-- **送信に失敗した場合**: commitだけ残った状態でも、変更がなくてもCommit & Pushを押せます。取得から送信までをやり直します。
+- **同じTaskが先に共有された場合**: Commit & Pushを止めます。確認して最新版へ更新すると、この作業ツリーに保存した該当Taskの変更は失われます。最新版を開いて変更をやり直します。本文、日付、状態などTask全体が対象です。
+- **共有側を確認できない場合**: commitせず、ローカルの変更を残します。pushに失敗してcommitが残った場合は、Commit & Pushをもう一度押せます。
 - **Pull**: 他の人の更新を取り込みます。共有していない自分のcommitがある場合は、その上に置き直します。未コミットの変更があるときは実行できません。先にCommit & Pushしてください。
 - **同じ場所を変更していた場合**: 自動では取り込まず、操作前の状態に戻して、対象ファイルを表示します。自分の変更は失われません。詳しい人に相談してください。
 - **`views/wbs.md` だけが競合した場合**: Taskから再生成して、自動で解決します。
 - **状態表示**: Gitパネルに、pushしていないcommitの件数と、共有側の更新の件数を表示します。共有側の確認（通信）は、パネルの更新ボタン（↻）、Pull、Commit & Pushを押したときに行います。
 - **変更履歴**: 右ペインに直近20件のcommitを新しい順で表示します。日時、author、short hash、commit message、変更ファイル数に加え、Task追加や主要なFront Matter変更を取得できた場合はTask ID・タイトル・変更内容を表示します。履歴は初回表示、履歴の更新ボタン、Pull成功後、Commit & Push成功後に再取得します。
 - force pushとmerge commitは使いません。操作は、ボタンを押したときだけ実行されます。
-- 同じ番号のTaskを別々に作成した場合は競合します。Taskを作成する前にPullすると避けられます。
+- IDに使う時刻が別々なら、別cloneでも異なるIDになります。同じミリ秒のID衝突に対する追加処理はありません。
 
 ## 設計上の境界
 
