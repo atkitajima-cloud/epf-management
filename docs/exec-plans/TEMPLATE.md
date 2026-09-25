@@ -5,7 +5,7 @@
 - 状態: active
 - 計画承認状態: pending
 - 作成日: YYYY-MM-DD
-- 対象repo: <repo名>
+- 対象リポジトリ: <リポジトリ名>
 - 関連Task: <Taskへの相対リンク>
 - 人間の計画承認: 未承認
 
