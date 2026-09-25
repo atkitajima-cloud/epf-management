@@ -74,8 +74,10 @@ title: ${values.title}
 status: ${values.status}
 owner: ${values.owner}
 priority: ${values.priority}
+target_repo: ${values.target_repo || ''}
 start: ${values.start || ''}
 due: ${values.due || ''}
+completed_at: ${values.completed_at || ''}
 requirement: ${values.requirement || ''}
 depends_on: ${values.depends_on || ''}
 ---
@@ -147,6 +149,31 @@ test('通常commitとTask作成・Front Matter変更を新しい順に取得す�
   assert.deepEqual(history[1].taskChanges[0].changes, []);
   assert.equal(history[2].message, '通常の変更');
   assert.deepEqual(history[2].taskChanges, []);
+});
+
+test('対象リポジトリと完了日だけの変更も履歴の前後値に出る', async (context) => {
+  const dir = await setupHistoryRepository(context);
+  await fs.mkdir(path.join(dir, 'tasks'));
+  const file = path.join(dir, 'tasks', 'EPF-0045.md');
+  const values = { id: 'EPF-0045', title: '履歴を確認する', status: 'doing', owner: 'kitajima', priority: 'high', target_repo: 'common' };
+  const commitTask = async (message) => {
+    await fs.writeFile(file, taskMarkdown(values), 'utf8');
+    await git(dir, 'add', '-A');
+    await git(dir, 'commit', '-q', '-m', message);
+  };
+  await commitTask('Taskを追加');
+  values.target_repo = 'epf-management';
+  await commitTask('対象リポジトリだけ変更');
+  values.completed_at = '2026-09-25';
+  await commitTask('完了日だけ変更');
+
+  const { history } = await getGitHistory(dir);
+  assert.deepEqual(history[1].taskChanges[0].changes, [
+    { field: 'target_repo', before: 'common', after: 'epf-management' }
+  ]);
+  assert.deepEqual(history[0].taskChanges[0].changes, [
+    { field: 'completed_at', before: '', after: '2026-09-25' }
+  ]);
 });
 
 test('先にpushされていても、Commit & Pushで積み直して共有できる（merge commitを作らない）', async (context) => {

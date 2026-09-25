@@ -9,7 +9,7 @@ const WBS_PATH = 'views/wbs.md';
 const MAX_WBS_RESOLUTIONS = 20;
 const NETWORK_TIMEOUT_MS = 60000;
 const HISTORY_LIMIT = 20;
-const TASK_FIELDS = ['title', 'status', 'owner', 'priority', 'start', 'due', 'requirement', 'depends_on'];
+const TASK_FIELDS = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'completed_at', 'requirement', 'depends_on'];
 const TASK_FILE_PATTERN = /^tasks\/(EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3}))\.md$/;
 
 async function git(root, args, { timeout } = {}) {

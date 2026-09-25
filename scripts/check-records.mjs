@@ -35,10 +35,8 @@ function configSource(repo, name) {
   return fs.readFileSync(path.join(workspace, repo, name), 'utf8');
 }
 
-const baseline = JSON.parse(configSource('epf-management', 'config/record-check-baseline.json'));
 const taskBaseline = JSON.parse(configSource('epf-management', 'config/task-validation-baseline.json'));
 const { parseMarkdown, validateTask } = await import(pathToFileURL(path.join(workspace, 'epf-management', 'app', 'lib', 'markdown.js')).href);
-const allowedBroken = new Set(baseline.brokenLinks.map(({ source, target }) => `${source}|${target}`));
 const legacyDone = new Set(taskBaseline.legacyDoneTaskIds);
 const uncheckedExceptions = new Set(taskBaseline.uncheckedDoneExceptionIds);
 const missingHeadingExceptions = new Set(taskBaseline.missingHeadingExceptionIds || []);
@@ -104,7 +102,7 @@ for (const repo of repos) {
       const sourceName = `${repo}/${name}`;
       const entry = { source: sourceName, target: target.split('#')[0] };
       findings.push(entry);
-      if (!allowedBroken.has(`${entry.source}|${entry.target}`)) errors.push(`切れリンク: ${entry.source} → ${entry.target}`);
+      errors.push(`切れリンク: ${entry.source} → ${entry.target}`);
     }
   }
 }
@@ -163,6 +161,6 @@ if (implementation) {
 if (report) console.log(JSON.stringify({ findings, errors }, null, 2));
 else {
   for (const error of errors) console.error(error);
-  console.log(`文書検査: ${errors.length}件のエラー、既存切れリンク${findings.length}件`);
+  console.log(`文書検査: ${errors.length}件のエラー、切れたリンク${findings.length}件`);
 }
 if (errors.length && !report) process.exitCode = 1;

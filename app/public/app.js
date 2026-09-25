@@ -255,7 +255,7 @@ document.querySelector('#cancelDialog').addEventListener('click', () => dialog.c
 
 const historyFieldLabels = {
   title: 'タイトル', status: '状態', owner: '担当者', priority: '優先度',
-  target_repo: '対象リポジトリ', start: '開始日', due: '期限', requirement: 'Requirement', depends_on: '先行Task'
+  target_repo: '対象リポジトリ', start: '開始日', due: '期限', completed_at: '完了日', requirement: 'Requirement', depends_on: '先行Task'
 };
 
 function historyDate(value) {
