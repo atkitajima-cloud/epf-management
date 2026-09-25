@@ -10,7 +10,6 @@ start:
 due:
 depends_on:
 requirement: REQ-xxxx
-plan:
 ---
 
 # 背景
@@ -24,7 +23,7 @@ plan:
 # 関連
 
 - Requirement:
-- Plan:
+- ExecPlan:
 - Frontend PR:
 - Backend PR:
 - Redmine:

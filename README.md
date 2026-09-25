@@ -86,7 +86,8 @@ context/       背景・範囲・制約・用語
 requirements/ 要求（REQ-xxxx）
 tasks/        Taskの正本（EPF-xxxx、1タスク1ファイル）
 masters/      担当者マスタ（owners.md）
-plans/        このアプリ自体の大きな変更のPlan（管理対象のTaskとは無関係）
+plans/        既存のPLANファイル（移動・改名しない）
+docs/exec-plans/ 新しいExecPlanと4repo共通テンプレート
 views/        Taskから生成する派生View
 templates/    Markdownテンプレート
 app/          ローカルWebアプリ

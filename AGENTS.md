@@ -9,10 +9,10 @@
 
 ## 情報のつながり
 
-- Context → Requirement → Task → Planの関係を維持する。
+- Context → Requirement → Task → ExecPlanの関係を維持する。既存のPlan参照も保持する。
 - WBSは `tasks/*.md` から生成する派生Viewであり、正本として編集しない。
 - ガントチャートも `tasks/*.md` から生成する派生Viewであり、表示用データを正本として保存しない。
-- `epf-project` のExecPlanに関連するTaskは、本文の「関連」からExecPlanへリンクする。Taskを `review` または `done` にするときは、実施内容と検証結果がExecPlanにも記録されていることを確認する。
+- ExecPlanに関連するTaskは、本文の「関連」から対象repoのExecPlanへリンクする。Taskを `review` または `done` にするときは、実施内容と検証結果がExecPlanにも記録されていることを確認する。
 - TaskとExecPlanの同期ルールは `../epf-project/docs/design-docs/task-execplan-sync.md` を参照する。
 - 設計・判断Taskを完了する前に、後続実装Taskと依存関係、または実装不要理由を記録する。
 - 再利用するAI作業のSkill運用は `../epf-project/docs/design-docs/ai-skill-operation.md` を参照する。
@@ -30,8 +30,9 @@
 
 ## 変更の管理
 
-- 大きな変更の前に `plans/` のPlanを作成または更新する。
-- Taskの追加、編集、状態変更、日程・担当・依存関係の変更は、`tasks/*.md` とGit差分で追跡する。これらのTaskデータ変更だけを理由にPlanを作成する必要はない。
+- 大きな変更の前に、対象repoの `docs/exec-plans/` にExecPlanを作成または更新する。複数repoにまたがるExecPlanは `epf-project` に置く。
+- 既存の `plans/PLAN-*.md` は移動・改名せず、Taskの旧`plan`欄からの参照を維持する。新しいExecPlanはTask本文からリンクする。
+- Taskの追加、編集、状態変更、日程・担当・依存関係の変更は、`tasks/*.md` とGit差分で追跡する。これらのTaskデータ変更だけを理由にExecPlanを作成する必要はない。
 - TaskをMarkdownで直接 `done` に変更する場合は、同時に日本時間の当日を `completed_at`（`YYYY-MM-DD`）へ記録する。`done` 以外へ戻す場合は `completed_at` を空にする。
 - Git履歴とユーザーの未コミット変更を尊重する。
 - commit / pushを自動実行しない。
@@ -39,11 +40,11 @@
 
 ## 計画に基づく開発
 
-- 小さな文言修正を除く機能追加、データ構造変更、外部連携、運用変更の前には、必ず `plans/` にPlanを作成または更新する。
-- Planには目的、対象範囲、非対象、設計判断、実装ステップ、検証、リスク、未決事項を記載する。
-- ユーザーが「Planのみ」「計画作成まで」と指定した場合は、Plan以外のコード、設定、Markdownデータ、Git操作を変更せず、レビューを待つ。
-- Planレビュー後も、実装開始はユーザーの明示的な承認を受けてから行う。承認範囲を超える実装は行わない。
-- Planで提案した機能は、実装済みであるかのようにUI、README、回答で扱わない。
+- 小さな文言修正を除く機能追加、データ構造変更、外部連携、運用変更の前には、必ず `docs/exec-plans/` にExecPlanを作成または更新する。
+- ExecPlanは4repo共通の `docs/exec-plans/TEMPLATE.md` に沿って、目的、対象範囲、対象外、前提、実施手順、検証、リスク、未決事項を記録する。
+- ユーザーが「ExecPlanのみ」「計画作成まで」と指定した場合は、ExecPlanとTask・ExecPlanの同期に必要な記録以外の実装を変更せず、レビューを待つ。
+- ExecPlanレビュー後も、実装開始はユーザーの明示的な承認を受けてから行う。承認範囲を超える実装は行わない。
+- ExecPlanで提案した機能は、実装済みであるかのようにUI、README、回答で扱わない。
 - 専門用語、製品名、ファイル名、コマンド名は一般的な表記を使ってよい。説明文と見出しは平易な日本語で書き、不要な英語表現は避ける。
 
 ## 作業ターンごとの記録
