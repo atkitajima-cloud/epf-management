@@ -1,12 +1,12 @@
-# 実行計画: Taskの同時作業を安全にする
+# PLAN-0018: Taskの同時作業を安全にする
 
 ## 状態
 
-- 状態: active（計画レビュー待ち）
+- 状態: レビュー待ち
 - 作成日: 2026-09-25
-- 計画承認状態: pending
-- 対象: `epf-management`
-- 関連Task: [EPF-0041](../../../tasks/EPF-0041.md)
+- 関連Task: [EPF-0041](../tasks/EPF-0041.md)
+- 上位計画: [PLAN-0002](PLAN-0002-team-collaboration.md)
+- 関連資料: [IMP-04](../../epf-project/docs/references/poc-retrospective-and-team-readiness.md#imp-04)
 
 ## 目的
 
@@ -31,11 +31,11 @@
 
 ## 実施手順
 
-1. `plans/`に実装Planを作り、採番方法、保存時の競合防止、commit対象の選び方を決めてレビューを受ける。
-2. 日時IDの作成処理を用意し、アプリとAIのTask作成で共通利用する。IDを検証・参照する箇所も新旧両形式に対応する。独立した2つの作業ツリーからの作成を試す。
-3. Taskの作成・更新処理と画面を変更し、競合時は上書きせずHTTP 409で知らせる。
+1. 人間レビュー後、Task IDの検証・リンク生成・一覧表示を新旧ID形式に対応させる。
+2. 日時IDの作成処理をアプリとAIのTask作成で共通利用する。
+3. Taskの取得結果にrevisionを加え、詳細編集、status変更、受入記録の保存時に版を照合する。競合時はHTTP 409で知らせる。
 4. Commit & Pushを変更し、確認した差分だけをcommitする。操作手順をREADMEに記す。
-5. 自動testと手動確認の結果をTaskと本計画に記録する。
+5. 自動testと手動確認の結果をTaskと本Planに記録する。
 
 ## 完了の確認
 
@@ -51,4 +51,4 @@
 
 ## 記録
 
-- 2026-09-25: EPF-0041と[IMP-04](../../../../epf-project/docs/references/poc-retrospective-and-team-readiness.md#imp-04)を確認して作成。利用者の指定により、採番は日本時間の年月日時分秒とミリ秒3桁を使う。実装は未着手。
+- 2026-09-25: EPF-0041とIMP-04を確認して作成。利用者の指定により、採番は日本時間の年月日時分秒とミリ秒3桁を使う。実装は未着手。
