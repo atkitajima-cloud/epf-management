@@ -88,7 +88,10 @@ function targetExists(sourceRepo, sourceName, target) {
   const [repo, ...parts] = relative.split('/');
   if (!repos.includes(repo)) return fs.existsSync(absolute);
   const name = parts.join('/');
-  return indexed.get(repo).has(name) || (!staged && fs.existsSync(absolute));
+  // stagedモードのcurrentRepoはgit indexの内容を正とする（read()が`git show :name`で読むのと一致させる）。
+  // それ以外は、indexにまだ残っている未stageの削除を「存在する」と誤判定しないよう、実ファイルの存在も確認する。
+  if (staged && repo === currentRepo) return indexed.get(repo).has(name);
+  return indexed.get(repo).has(name) && fs.existsSync(absolute);
 }
 
 for (const repo of repos) {
