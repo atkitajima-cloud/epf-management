@@ -387,6 +387,10 @@ export const BODY_TEMPLATE = `# 背景
 - [ ] 
 - [ ] 
 
+# メモ
+
+（未記入）
+
 # 関連
 
 （未記入）`;

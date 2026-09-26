@@ -104,7 +104,7 @@ test('画面からのTask作成は共通の雛形を使い、planを書かず、
   const parsed = parseMarkdown(source);
   assert.equal(parsed.data.status, 'ready');
   assert.equal(parsed.data.target_repo, 'common');
-  assert.equal(parsed.body.trim(), '# 背景\n\n（未記入）\n\n# 目的\n\n（未記入）\n\n# 完了条件\n\n- [ ] \n- [ ] \n- [ ] \n\n# 関連\n\n（未記入）');
+  assert.equal(parsed.body.trim(), BODY_TEMPLATE.trim());
   const own = await createTask(root, { title: '本文あり', owner: 'tester', requirement: 'REQ-0001', body: BODY_TEMPLATE.replace('（未記入）', '独自') }, { clock: () => new Date('2026-09-25T03:04:05.011Z') });
   assert.match(own.body, /独自/);
   await assert.rejects(createTask(root, { title: '見出しなし', owner: 'tester', body: '# 独自' }), /見出しが必要/);
