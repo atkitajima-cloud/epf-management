@@ -31,6 +31,22 @@ function taskRevision(source) {
   return createHash('sha256').update(source, 'utf8').digest('hex');
 }
 
+const SYNC_EVIDENCE_FIELDS = new Set(['sync_status', 'sync_target', 'sync_at', 'sync_fingerprint', 'human_checked', 'human_checked_at', 'human_checked_fingerprint']);
+
+export function taskSyncFingerprint(task, body = '') {
+  const fields = ['title', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan', 'actual_started_at'];
+  const value = { body: String(body).replace(/\r\n/g, '\n').trim() };
+  for (const field of fields) value[field] = String(task[field] ?? '').trim();
+  return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
+}
+
+export function hasValidTransitionEvidence(task, body = '') {
+  const fingerprint = taskSyncFingerprint(task, body);
+  const humanOverride = task.human_checked === 'true' && task.human_checked_fingerprint === fingerprint;
+  const syncEvidence = task.sync_status === 'passed' && task.sync_target === task.status && task.sync_fingerprint === fingerprint && validTimestamp(task.sync_at);
+  return humanOverride || syncEvidence;
+}
+
 export function taskIdForDate(now = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -166,6 +182,12 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
       throw new Error('exec_planはリポジトリ名を含む有効なPlanまたはExecPlanのパスで指定してください');
     }
   }
+  if (task.sync_status && task.sync_status !== 'passed') throw new Error('sync_statusはpassedまたは空欄で指定してください');
+  if (task.sync_target && !['review', 'done'].includes(task.sync_target)) throw new Error('sync_targetはreviewまたはdoneで指定してください');
+  if (task.sync_at && !validTimestamp(task.sync_at)) throw new Error('sync_atはタイムゾーン付きISO 8601形式で指定してください');
+  for (const field of ['sync_fingerprint', 'human_checked_fingerprint']) if (task[field] && !/^[a-f0-9]{64}$/.test(task[field])) throw new Error(`${field}はSHA-256形式で指定してください`);
+  if (task.human_checked && task.human_checked !== 'true') throw new Error('human_checkedはtrueまたは空欄で指定してください');
+  if (task.human_checked_at && !validTimestamp(task.human_checked_at)) throw new Error('human_checked_atはタイムゾーン付きISO 8601形式で指定してください');
   for (const field of ['start', 'due']) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);
   }
@@ -334,7 +356,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
     const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
     if (expectedRevision !== existing.revision) throw taskConflict(existing);
     if (existing.deleted_at) throw new Error('削除済みTaskは変更できません');
-    const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan', 'actual_started_at'];
+    const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan', 'actual_started_at', 'sync_status', 'sync_target', 'human_checked'];
     const data = { ...existing };
     delete data.body;
     delete data.revision;
@@ -342,7 +364,33 @@ export async function updateTask(root, id, changes, expectedRevision) {
     delete data.backend_repo;
     for (const key of allowed) if (key in changes) data[key] = String(changes[key] ?? '').trim();
     const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
-    const contentChanged = body !== existing.body || allowed.some((key) => key !== 'status' && String(data[key] ?? '') !== String(existing[key] ?? ''));
+    const contentChanged = body !== existing.body || allowed.some((key) => !['status', 'sync_status', 'sync_target', 'human_checked'].includes(key) && String(data[key] ?? '') !== String(existing[key] ?? ''));
+    const syncRequested = data.sync_status === 'passed' && (changes.sync_status === 'passed' || changes.sync_target);
+    const humanRequested = changes.human_checked === 'true';
+    if (contentChanged || data.sync_status !== 'passed') {
+      data.sync_status = '';
+      data.sync_target = '';
+      data.sync_at = '';
+      data.sync_fingerprint = '';
+    }
+    if (contentChanged || !humanRequested) {
+      data.human_checked = '';
+      data.human_checked_at = '';
+      data.human_checked_fingerprint = '';
+    }
+    const fingerprint = taskSyncFingerprint(data, body);
+    if (syncRequested) {
+      if (!['review', 'done'].includes(changes.sync_target ?? data.sync_target)) throw new Error('同期証跡にはreviewまたはdoneの遷移先が必要です');
+      data.sync_status = 'passed';
+      data.sync_target = String(changes.sync_target ?? data.sync_target);
+      data.sync_at = new Date().toISOString();
+      data.sync_fingerprint = fingerprint;
+    }
+    if (humanRequested) {
+      data.human_checked = 'true';
+      data.human_checked_at = new Date().toISOString();
+      data.human_checked_fingerprint = fingerprint;
+    }
     if (data.status === 'done' && existing.status !== 'done') {
       if (existing.status !== 'review') throw new Error('doneへの変更はreview状態のTaskにだけ実行できます');
       if (contentChanged) throw new Error('受入後にTaskを変更した場合は再受入が必要です');

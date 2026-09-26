@@ -179,6 +179,8 @@ async function openTask(id) {
       taskForm.elements[field].value = task[field] || '';
       taskForm.elements[field].disabled = Boolean(task.deleted_at);
     }
+    taskForm.elements.human_checked.checked = task.human_checked === 'true';
+    taskForm.elements.human_checked.disabled = Boolean(task.deleted_at);
     document.querySelector('#saveStatus').textContent = '';
     document.querySelector('#deleteTaskButton').hidden = task.status === 'done' || Boolean(task.deleted_at);
     taskForm.querySelector('[type="submit"]').disabled = Boolean(task.deleted_at);
@@ -191,6 +193,7 @@ taskForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const id = document.querySelector('#dialogTaskId').textContent;
   const payload = Object.fromEntries(new FormData(taskForm));
+  payload.human_checked = taskForm.elements.human_checked.checked ? 'true' : '';
   const button = taskForm.querySelector('[type="submit"]');
   setBusy(button, true);
   try {

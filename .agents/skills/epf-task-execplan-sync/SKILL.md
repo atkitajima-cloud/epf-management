@@ -51,6 +51,7 @@ Taskを`review`または`done`へ進める前にも、未記録の人間指摘�
 ### review
 
 - Task本文に未チェックの完了条件がないことを確認する。未チェックがある場合はTaskを`review`へ進めず、実施・検証を継続する。
+- 確認が完了したら、Task保存APIで`sync_status: passed`、`sync_target: review`を記録する。APIがfingerprintと記録時刻を保存した後、状態を`review`へ変更する。
 - 実施内容、検証方法、確認待ちの事項をExecPlanに記録する。
 - 実装または設計の完了条件を推測で完了にしない。人間レビュー待ちの内容を明示する。
 - AI作業不備の確認を行い、該当する場合は台帳と対応Taskのリンクを記録する。
@@ -58,6 +59,7 @@ Taskを`review`または`done`へ進める前にも、未記録の人間指摘�
 ### 完了
 
 - Taskを`done`にする場合、`completed_at`へ日本時間の当日を記録する。
+- `done`へ進める前に、Task保存APIで`sync_status: passed`、`sync_target: done`を記録する。APIが保存した証跡がGit共有時のcommit前hookで検査される。
 - ExecPlanへ実施結果、検証結果、関連commitまたはPull Requestを記録する。
 - `epf-backend`／`epf-frontend`の実装では、Task本文の`## 実装記録`にrepoごとのbranch、Pull Request、merge commit、Pipeline結果、検証結果が記録されていることを確認する。Task:branchが1:Nの場合も、すべてのrepoを確認する。
 - `epf-backend`／`epf-frontend`では、作業ツリーがcleanであること、local `main`がmerge commitを含むこと、local／CodeCommitのsource branchが削除済みであることを確認し、結果をTask本文とExecPlanへ記録する。AIのCodeCommit Git操作では`atkit_ai`とAWS CLI credential helperを明示する。

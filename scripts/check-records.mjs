@@ -35,7 +35,7 @@ function configSource(repo, name) {
 }
 
 const taskBaseline = JSON.parse(configSource('epf-management', 'config/task-validation-baseline.json'));
-const { parseMarkdown, validateTask } = await import(pathToFileURL(path.join(workspace, 'epf-management', 'app', 'lib', 'markdown.js')).href);
+const { hasValidTransitionEvidence, parseMarkdown, validateTask } = await import(pathToFileURL(path.join(workspace, 'epf-management', 'app', 'lib', 'markdown.js')).href);
 const legacyDone = new Set(taskBaseline.legacyDoneTaskIds);
 const uncheckedExceptions = new Set(taskBaseline.uncheckedDoneExceptionIds);
 const missingHeadingExceptions = new Set(taskBaseline.missingHeadingExceptionIds || []);
@@ -61,6 +61,11 @@ function execPlanFile(value) {
   const [repo, ...parts] = value.split('/');
   if (!repos.includes(repo) || !parts.length) return null;
   return { repo, name: parts.join('/'), status: value.match(/\/docs\/exec-plans\/(active|completed)\//)?.[1] };
+}
+
+function previousTask(repo, name) {
+  try { return git(repo, ['show', `HEAD:${name}`]); }
+  catch { return null; }
 }
 
 function execPlanExists(plan) {
@@ -128,6 +133,13 @@ for (const name of indexed.get('epf-management')) {
     if (['review', 'done'].includes(task.data.status)) {
       const isDeleted = Boolean(task.data.deleted_at);
       if (!isDeleted && !uncheckedExceptions.has(id) && /^\s*-\s+\[ \]\s+/m.test(task.body)) errors.push(`${id}: 未チェックの完了条件`);
+    }
+    const previous = staged && currentRepo === 'epf-management' && stagedPaths.has(name) ? previousTask('epf-management', name) : null;
+    if (previous) {
+      const before = parseMarkdown(previous).data;
+      if (before.status !== task.data.status && ['review', 'done'].includes(task.data.status) && !task.data.deleted_at && !hasValidTransitionEvidence(task.data, task.body)) {
+        errors.push(`${id}: ${task.data.status}への変更には有効な同期証跡または人間確認が必要`);
+      }
     }
     if (task.data.status === 'done') {
       const isDeleted = Boolean(task.data.deleted_at);

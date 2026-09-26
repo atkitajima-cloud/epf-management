@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { BODY_TEMPLATE, buildGanttData, createTask, deleteTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, taskIdForDate, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
+import { BODY_TEMPLATE, buildGanttData, createTask, deleteTask, generateWbs, hasValidTransitionEvidence, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, taskIdForDate, taskSyncFingerprint, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -45,6 +45,27 @@ test('未チェックの完了条件があるTaskはReviewへ進めない', asyn
   await updateCurrent(root, 'EPF-0001', { status: 'review' });
   const completed = await updateCurrent(root, 'EPF-0001', { status: 'done' });
   assert.equal(completed.status, 'done');
+});
+
+test('同期証跡と人間確認を保存し、対象内容の変更で無効化する', async (context) => {
+  const root = await makeRoot(context);
+  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [x] 完了', sync_status: 'passed', sync_target: 'review' });
+  let task = await readTask(root, 'EPF-0001');
+  assert.equal(task.sync_status, 'passed');
+  assert.equal(task.sync_target, 'review');
+  assert.equal(task.sync_fingerprint, taskSyncFingerprint(task, task.body));
+  await updateCurrent(root, 'EPF-0001', { status: 'review' });
+  task = await readTask(root, 'EPF-0001');
+  assert.equal(hasValidTransitionEvidence(task, task.body), true);
+  await updateCurrent(root, 'EPF-0001', { human_checked: 'true' });
+  task = await readTask(root, 'EPF-0001');
+  assert.equal(task.human_checked, 'true');
+  assert.equal(task.human_checked_fingerprint, taskSyncFingerprint(task, task.body));
+  await updateCurrent(root, 'EPF-0001', { title: '変更後' });
+  task = await readTask(root, 'EPF-0001');
+  assert.equal(task.sync_status ?? '', '');
+  assert.equal(task.human_checked ?? '', '');
+  assert.equal(hasValidTransitionEvidence(task, task.body), false);
 });
 
 test('Front Matterと本文を往復できる', () => {
