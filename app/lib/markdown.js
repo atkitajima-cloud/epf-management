@@ -18,6 +18,13 @@ export const REQUIRED_FIELDS = ['id', 'title', 'status', 'owner', 'priority', 't
 const TASK_BASELINE = 'config/task-validation-baseline.json';
 const TASK_HEADINGS = ['# 背景', '# 目的', '# 完了条件', '# 関連'];
 const TASK_ID_PATTERN = /^EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})$/;
+const EXEC_PLAN_PATTERN = /^(?:epf-management\/plans\/PLAN-\d{4}(?:-[^/]+)?\.md|(?<repo>epf-project|epf-management|epf-backend|epf-frontend)\/docs\/exec-plans\/(?:active|completed)\/EP-(?<prefix>PJ|MG|BE|FE)-(?:\d{4}|\d{8}-\d{6}-\d{3})-\d{2}\.md)$/;
+const EXEC_PLAN_PREFIXES = Object.freeze({
+  'epf-project': 'PJ',
+  'epf-management': 'MG',
+  'epf-backend': 'BE',
+  'epf-frontend': 'FE'
+});
 const taskWriteLocks = new Map();
 
 function taskRevision(source) {
@@ -123,8 +130,8 @@ function formatScalar(value) {
 }
 
 export function serializeMarkdown(data, body) {
-  const preferred = ['id', 'title', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'accepted_by', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan'];
-  const legacy = new Set(['frontend_repo', 'backend_repo']);
+  const preferred = ['id', 'title', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'accepted_by', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan'];
+  const legacy = new Set(['frontend_repo', 'backend_repo', 'plan']);
   const keys = [...preferred.filter((key) => key in data), ...Object.keys(data).filter((key) => !preferred.includes(key) && !legacy.has(key))];
   return `---\n${keys.map((key) => data[key] === '' ? `${key}:` : `${key}: ${formatScalar(data[key])}`).join('\n')}\n---\n\n${String(body ?? '').trim()}\n`;
 }
@@ -134,6 +141,7 @@ export function parseDependencies(value) {
 }
 
 export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExceptions = new Set(), body, checkHeadings = body !== undefined } = {}) {
+  if (Object.hasOwn(task, 'plan')) throw new Error('planは廃止されました。exec_planを使用してください');
   for (const field of REQUIRED_FIELDS) if (!String(task[field] ?? '').trim()) throw new Error(`${field}は必須です`);
   if (!TASK_ID_PATTERN.test(task.id)) throw new Error('idはEPF-0000または日時形式で指定してください');
   if (!STATUSES.includes(task.status)) throw new Error(`statusは${STATUSES.join(', ')}のいずれかです`);
@@ -151,6 +159,12 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
     if (task.completed_at !== japanDate(task.actual_completed_at)) throw new Error('completed_atはactual_completed_atの日本時間の日付と一致する必要があります');
   }
   if (task.requirement && !/^REQ-\d{4}$/.test(task.requirement)) throw new Error('requirementはREQ-0000形式で指定してください');
+  if (task.exec_plan) {
+    const match = String(task.exec_plan).match(EXEC_PLAN_PATTERN);
+    if (!match || (match.groups?.repo && EXEC_PLAN_PREFIXES[match.groups.repo] !== match.groups.prefix)) {
+      throw new Error('exec_planはリポジトリ名を含む有効なPlanまたはExecPlanのパスで指定してください');
+    }
+  }
   for (const field of ['start', 'due']) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);
   }
@@ -318,7 +332,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
     validateTask(parsed.data, await validationBaseline(root));
     const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
     if (expectedRevision !== existing.revision) throw taskConflict(existing);
-    const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'plan', 'actual_started_at'];
+    const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan', 'actual_started_at'];
     const data = { ...existing };
     delete data.body;
     delete data.revision;
@@ -417,7 +431,7 @@ export async function createTask(root, input, { clock = () => new Date() } = {})
     owner: text(input.owner),
     priority: choose(input.priority, 'medium'), target_repo: choose(text(input.target_repo), 'common'),
     completed_at: '',
-    start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement
+    start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement, exec_plan: text(input.exec_plan)
   };
   if (data.status === 'done') throw new Error('新規Taskはdoneで作成できません。作成後に人間受入を記録してください');
   validateTask({ id: 'EPF-0000', ...data });

@@ -10,6 +10,7 @@ start:
 due:
 depends_on:
 requirement: REQ-xxxx
+exec_plan:
 ---
 
 # 背景

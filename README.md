@@ -117,7 +117,7 @@ Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `targ
 
 Taskは画面の「新規Task」から作成し、`tasks/EPF-nnnn.md` として保存します。
 
-ボード見出し右の「新規Task」からフォームで作成します。タイトルと担当者は必須で、不正な入力は補完せずエラーを表示します。Requirementは任意で、指定する場合は `requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文欄には、背景・目的・完了条件・関連の見出しを持つ雛形が最初から入っており、編集して作成できます。空にして作成した場合も、同じ雛形を保存します。Planは指定できず、Front Matterにも書きません。
+ボード見出し右の「新規Task」からフォームで作成します。タイトルと担当者は必須で、不正な入力は補完せずエラーを表示します。Requirementは任意で、指定する場合は `requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文欄には、背景・目的・完了条件・関連の見出しを持つ雛形が最初から入っており、編集して作成できます。空にして作成した場合も、同じ雛形を保存します。ExecPlanは画面では指定せず、必要な場合にFront Matterの`exec_plan`へ規定のパスを記録します。
 
 APIは `POST /api/tasks`（作成。成功は201、入力不正は400）と `GET /api/requirements`（Requirement一覧と本文の雛形）です。
 

@@ -7,7 +7,7 @@ import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, generateWbs, lis
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
-  priority: 'medium', target_repo: 'common', start: '2026-09-20', due: '2026-09-30', depends_on: '', requirement: 'REQ-0001', plan: 'PLAN-0001'
+  priority: 'medium', target_repo: 'common', start: '2026-09-20', due: '2026-09-30', depends_on: '', requirement: 'REQ-0001', exec_plan: 'epf-management/plans/PLAN-0001.md'
 };
 
 async function updateCurrent(root, id, changes) {
@@ -25,6 +25,37 @@ test('Front Matterと本文を往復できる', () => {
   const parsed = parseMarkdown(source);
   assert.deepEqual(parsed.data, sample);
   assert.match(parsed.body, /完了条件/);
+});
+
+test('exec_planは旧Planまたは主Task IDを含むExecPlanだけを受け入れる', () => {
+  const valid = [
+    'epf-management/plans/PLAN-0001.md',
+    'epf-management/plans/PLAN-0016-target-repository-validation.md',
+    'epf-project/docs/exec-plans/active/EP-PJ-0048-01.md',
+    'epf-backend/docs/exec-plans/completed/EP-BE-20260926-143204-441-02.md'
+  ];
+  for (const exec_plan of valid) validateTask({ ...sample, exec_plan });
+
+  const invalid = [
+    'PLAN-0001',
+    'epf-project/docs/exec-plans/active/EP-MG-0048-01.md',
+    'epf-project/docs/exec-plans/active/EP-PJ-0048.md',
+    'epf-project/docs/exec-plans/active/EP-PJ-0048-001.md',
+    'epf-project/docs/exec-plans/active/EP-PJ-0048-日本語名.md'
+  ];
+  for (const exec_plan of invalid) assert.throws(() => validateTask({ ...sample, exec_plan }), /exec_plan/);
+  assert.throws(() => validateTask({ ...sample, plan: 'PLAN-0001' }), /plan/);
+  const serialized = serializeMarkdown({ ...sample, plan: 'PLAN-0001' }, '# Sample');
+  assert.doesNotMatch(serialized, /^plan:/m);
+});
+
+test('exec_planはTask更新で保存され、読み直しても保持される', async (context) => {
+  const root = await makeRoot(context);
+  const exec_plan = 'epf-project/docs/exec-plans/active/EP-PJ-0048-01.md';
+  const updated = await updateCurrent(root, 'EPF-0001', { exec_plan });
+  assert.equal(updated.exec_plan, exec_plan);
+  assert.equal((await readTask(root, 'EPF-0001')).exec_plan, exec_plan);
+  assert.match(await fs.readFile(path.join(root, 'tasks', 'EPF-0001.md'), 'utf8'), /^exec_plan: epf-project\/docs\/exec-plans\/active\/EP-PJ-0048-01\.md$/m);
 });
 
 test('Task MarkdownだけをVS Code URLへ変換できる', () => {
@@ -95,12 +126,13 @@ async function makeRoot(context) {
   return root;
 }
 
-test('画面からのTask作成は共通の雛形を使い、planを書かず、往復できる', async (context) => {
+test('画面からのTask作成は共通の雛形を使い、exec_planを書き、往復できる', async (context) => {
   const root = await makeRoot(context);
   const created = await createTask(root, { title: '画面から', owner: 'tester', requirement: 'REQ-0001', depends_on: 'EPF-0001', status: 'ready' }, { clock: () => new Date('2026-09-25T03:04:05.010Z') });
   assert.match(created.id, /^EPF-\d{8}-\d{6}-\d{3}$/);
   const source = await fs.readFile(path.join(root, 'tasks', `${created.id}.md`), 'utf8');
   assert.doesNotMatch(source, /^plan:/m);
+  assert.match(source, /^exec_plan:$/m);
   const parsed = parseMarkdown(source);
   assert.equal(parsed.data.status, 'ready');
   assert.equal(parsed.data.target_repo, 'common');

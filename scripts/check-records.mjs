@@ -56,13 +56,16 @@ function relativeName(file) {
   return path.relative(workspace, file).replaceAll('\\', '/');
 }
 
-function linkedPlan(source) {
-  if (!source) return null;
-  const links = [...source.matchAll(/\]\(([^)]+\/(?:docs\/exec-plans\/(active|completed)\/[^)]+|plans\/PLAN-\d{4}[^)]*)\.md)\)/g)];
-  const managementPlanId = source.match(/^plan:\s*(PLAN-\d{4})\s*$/m)?.[1];
-  return (managementPlanId && links.find((match) => match[1].includes(`/plans/${managementPlanId}`)))
-    || links.find((match) => match[1].includes('/docs/exec-plans/'))
-    || null;
+function execPlanFile(value) {
+  if (!value) return null;
+  const [repo, ...parts] = value.split('/');
+  if (!repos.includes(repo) || !parts.length) return null;
+  return { repo, name: parts.join('/'), status: value.match(/\/docs\/exec-plans\/(active|completed)\//)?.[1] };
+}
+
+function execPlanExists(plan) {
+  if (!plan || !indexed.get(plan.repo).has(plan.name)) return false;
+  return staged && plan.repo === currentRepo || fs.existsSync(path.join(workspace, plan.repo, plan.name));
 }
 
 function activeLinks(source) {
@@ -132,11 +135,13 @@ for (const name of indexed.get('epf-management')) {
         }
       }
     }
-    const plan = linkedPlan(source);
-    if (plan) {
-      const planFile = path.resolve(workspace, 'epf-management', 'tasks', plan[1]);
-      if (task.data.status === 'done' && plan[2] === 'active') errors.push(`${id}: doneだがExecPlanがactive`);
-      if (task.data.status !== 'done' && plan[2] === 'completed' && fs.existsSync(planFile)) errors.push(`${id}: 未完了だがExecPlanがcompleted`);
+    const plan = execPlanFile(task.data.exec_plan);
+    if (task.data.exec_plan && !execPlanExists(plan)) {
+      errors.push(`${id}: exec_planの参照先が見つからない: ${task.data.exec_plan}`);
+    }
+    if (plan && execPlanExists(plan)) {
+      if (task.data.status === 'done' && plan.status === 'active') errors.push(`${id}: doneだがExecPlanがactive`);
+      if (task.data.status !== 'done' && plan.status === 'completed') errors.push(`${id}: 未完了だがExecPlanがcompleted`);
     }
   } catch (error) { errors.push(`${name}: ${error.message}`); }
 }
