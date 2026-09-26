@@ -51,7 +51,9 @@ Taskを`review`または`done`へ進める前にも、未記録の人間指摘�
 ### review
 
 - Task本文に未チェックの完了条件がないことを確認する。未チェックがある場合はTaskを`review`へ進めず、実施・検証を継続する。
-- 確認が完了したら、Task保存APIで`sync_status: passed`、`sync_target: review`を記録する。APIがfingerprintと記録時刻を保存した後、状態を`review`へ変更する。
+- Taskを`review`へ進める前に、ExecPlanの`実装記録`を確認する。実装を伴うTaskでは、対象repoごとにpush済みであることを確認した短縮commit SHAとリモートcommit URLが記録されていることを確認する。複数repo・複数commitは行を追加する。
+- 実装を伴わないTaskでは、ExecPlanの`実装記録`に実装不要の理由が記録されていることを確認する。push前のローカルcommitは記録対象にしない。
+- 上記の確認を含む同期Skillが正常終了した後、Task保存APIで`sync_status: passed`、`sync_target: review`を記録する。APIがfingerprintと記録時刻を保存した後、状態を`review`へ変更する。
 - 実施内容、検証方法、確認待ちの事項をExecPlanに記録する。
 - 実装または設計の完了条件を推測で完了にしない。人間レビュー待ちの内容を明示する。
 - AI作業不備の確認を行い、該当する場合は台帳と対応Taskのリンクを記録する。
@@ -59,6 +61,7 @@ Taskを`review`または`done`へ進める前にも、未記録の人間指摘�
 ### 完了
 
 - Taskを`done`にする場合、`completed_at`へ日本時間の当日を記録する。
+- `review`時に確認したExecPlanの`実装記録`が最終状態として残っていることを再確認する。人間レビュー後に実装を追加・変更した場合は、push済みcommitリンクまたは実装不要理由を更新してから再確認する。
 - `done`へ進める前に、Task保存APIで`sync_status: passed`、`sync_target: done`を記録する。APIが保存した証跡がGit共有時のcommit前hookで検査される。
 - ExecPlanへ実施結果、検証結果、関連commitまたはPull Requestを記録する。
 - `epf-backend`／`epf-frontend`の実装では、Task本文の`## 実装記録`にrepoごとのbranch、Pull Request、merge commit、Pipeline結果、検証結果が記録されていることを確認する。Task:branchが1:Nの場合も、すべてのrepoを確認する。

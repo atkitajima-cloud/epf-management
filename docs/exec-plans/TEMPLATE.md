@@ -59,6 +59,11 @@
 
 - YYYY-MM-DD: 作成。計画レビュー待ち。
 
+## 実装記録
+
+- 実装Task: `<対象repo>` — [`<短縮commit SHA>`](https://<Gitサービス>/<repo>/commit/<完全SHA>)
+- 実装不要Task: 実装不要理由を記録する。
+
 ## 実施結果と検証
 
 - 未実施。
