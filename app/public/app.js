@@ -130,6 +130,7 @@ function wireBoardEvents() {
       try {
         const { task: updated } = await api(`/api/tasks/${task.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: task.status, revision: task.revision }) });
         Object.assign(task, updated);
+        renderBoard();
         toast(`${task.id} を ${task.status} に更新しました`);
         loadGit();
       } catch (error) {
