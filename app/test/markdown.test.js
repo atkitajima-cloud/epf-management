@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, taskIdForDate, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
+import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, deleteTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, taskIdForDate, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -56,6 +56,21 @@ test('exec_planはTask更新で保存され、読み直しても保持される'
   assert.equal(updated.exec_plan, exec_plan);
   assert.equal((await readTask(root, 'EPF-0001')).exec_plan, exec_plan);
   assert.match(await fs.readFile(path.join(root, 'tasks', 'EPF-0001.md'), 'utf8'), /^exec_plan: epf-project\/docs\/exec-plans\/active\/EP-PJ-0048-01\.md$/m);
+});
+
+test('未完了Taskはrevision照合後に削除でき、完了済みTaskは削除できない', async (context) => {
+  const root = await makeRoot(context);
+  const current = await readTask(root, 'EPF-0001');
+  assert.deepEqual(await deleteTask(root, 'EPF-0001', current.revision), { id: 'EPF-0001' });
+  await assert.rejects(readTask(root, 'EPF-0001'), (error) => error.code === 'ENOENT');
+
+  await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown(sample, '# Sample'), 'utf8');
+  await updateCurrent(root, 'EPF-0001', { status: 'review' });
+  await acceptCurrent(root, 'EPF-0001');
+  await updateCurrent(root, 'EPF-0001', { status: 'done' });
+  const done = await readTask(root, 'EPF-0001');
+  await assert.rejects(deleteTask(root, 'EPF-0001', done.revision), /完了済みTaskは削除できません/);
+  assert.equal((await readTask(root, 'EPF-0001')).status, 'done');
 });
 
 test('Task MarkdownだけをVS Code URLへ変換できる', () => {

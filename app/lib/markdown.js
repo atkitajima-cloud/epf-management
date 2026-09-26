@@ -364,6 +364,21 @@ export async function updateTask(root, id, changes, expectedRevision) {
   });
 }
 
+export async function deleteTask(root, id, expectedRevision) {
+  if (!expectedRevision) throw new Error('Taskを読み直してから削除してください');
+  const file = taskPath(root, id);
+  return withTaskWriteLock(file, async () => {
+    const source = await fs.readFile(file, 'utf8');
+    const parsed = parseMarkdown(source);
+    validateTask(parsed.data, await validationBaseline(root));
+    const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
+    if (expectedRevision !== existing.revision) throw taskConflict(existing);
+    if (existing.status === 'done') throw new Error('完了済みTaskは削除できません。必要なら完了前の状態へ戻してください');
+    await fs.unlink(file);
+    return { id };
+  });
+}
+
 export async function acceptTask(root, id, expectedRevision) {
   if (!expectedRevision) throw new Error('Taskを読み直してから更新してください');
   const file = taskPath(root, id);

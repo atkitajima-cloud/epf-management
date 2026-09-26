@@ -177,6 +177,7 @@ async function openTask(id) {
     document.querySelector('#acceptanceStatus').textContent = task.accepted_by
       ? `受入済み: ${task.accepted_by}（${task.actual_completed_at}）` : '受入未記録';
     document.querySelector('#acceptTaskButton').disabled = task.status !== 'review' || Boolean(task.accepted_by);
+    document.querySelector('#deleteTaskButton').hidden = task.status === 'done';
     dialog.showModal();
   } catch (error) { toast(error.message); }
 }
@@ -217,6 +218,22 @@ document.querySelector('#acceptTaskButton').addEventListener('click', async () =
   } catch (error) {
     document.querySelector('#saveStatus').textContent = error.message;
     if (error.status === 409 && window.confirm('他の人が先に更新しました。最新の内容を読み直しますか？\n読み直すと入力中の変更は失われます。')) await openTask(id);
+  } finally { setBusy(button, false); }
+});
+
+document.querySelector('#deleteTaskButton').addEventListener('click', async () => {
+  const id = document.querySelector('#dialogTaskId').textContent;
+  if (!window.confirm(`${id} を削除しますか？この操作はGit履歴には残りますが、画面からは消えます。`)) return;
+  const button = document.querySelector('#deleteTaskButton');
+  setBusy(button, true);
+  try {
+    await api(`/api/tasks/${id}`, { method: 'DELETE', body: JSON.stringify({ revision: taskForm.elements.revision.value }) });
+    dialog.close();
+    await Promise.all([loadTasks(), loadGit()]);
+    toast(`${id} を削除しました`);
+  } catch (error) {
+    document.querySelector('#saveStatus').textContent = error.message;
+    if (error.status === 409 && window.confirm('他の人が先に更新しました。最新の内容を読み直しますか？')) await openTask(id);
   } finally { setBusy(button, false); }
 });
 
