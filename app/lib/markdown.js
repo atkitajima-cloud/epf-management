@@ -459,8 +459,8 @@ export const BODY_TEMPLATE = `# 背景
 
 （未記入）`;
 
-export async function listRequirements(root) {
-  const directory = path.join(root, 'requirements');
+export async function listRequirements(root, requirementsDirectory = path.resolve(root, '..', 'epf-project', 'docs', 'requirements')) {
+  const directory = requirementsDirectory;
   const files = (await fs.readdir(directory).catch(() => [])).filter((name) => /^REQ-\d{4}\.md$/.test(name)).sort();
   const results = [];
   for (const file of files) {

@@ -178,13 +178,15 @@ test('ガント用の進捗率と遅延判定をTask正本から生成できる'
   assert.match(gantt.warnings[0].message, /存在しない先行Task/);
 });
 async function makeRoot(context) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'epf-management-'));
-  context.after(() => fs.rm(root, { recursive: true, force: true }));
-  await fs.mkdir(path.join(root, 'tasks'));
-  await fs.mkdir(path.join(root, 'requirements'));
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'epf-workspace-'));
+  const root = path.join(workspace, 'epf-management');
+  const requirements = path.join(workspace, 'epf-project', 'docs', 'requirements');
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  await fs.mkdir(path.join(root, 'tasks'), { recursive: true });
+  await fs.mkdir(requirements, { recursive: true });
   await fs.mkdir(path.join(root, 'masters'));
   await fs.writeFile(path.join(root, 'masters', 'owners.md'), '# 担当者\n\n- unassigned\n- tester\n- agent\n', 'utf8');
-  await fs.writeFile(path.join(root, 'requirements', 'REQ-0001.md'), '---\nid: REQ-0001\ntitle: 要件\n---\n', 'utf8');
+  await fs.writeFile(path.join(requirements, 'REQ-0001.md'), '---\nid: REQ-0001\ntitle: 要件\n---\n', 'utf8');
   await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown(sample, '# Sample'), 'utf8');
   return root;
 }

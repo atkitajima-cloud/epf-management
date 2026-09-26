@@ -1,6 +1,6 @@
 # 用語集
 
-- Requirement: 実現すべき要求。`requirements/REQ-xxxx.md` に保存する。
+- Requirement: 実現すべき要求。`../epf-project/docs/requirements/REQ-xxxx.md` に保存する。
 - Task: 実行可能な作業単位。`tasks/EPF-xxxx.md` が正本。
 - Plan: `plans/PLAN-*.md`にある既存の計画。移動・改名しない。Taskの旧`plan`欄はこれを指す。
 - ExecPlan: 今後の実行計画。対象リポジトリの`docs/exec-plans/`に置き、Task本文の「関連」からリンクする。

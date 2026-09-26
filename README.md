@@ -32,7 +32,7 @@ VS Code + Codex  AIによるプロジェクト横断分析・計画・Task分解
 
 ### 使い方の流れ
 
-1. `context/` と `requirements/` に、背景と要求をMarkdownで書きます（`templates/` を使えます）。
+1. `context/` と `../epf-project/docs/requirements/` に、背景と要求をMarkdownで書きます（`templates/` を使えます）。
 2. 画面の「新規Task」からTaskを作ります。
 3. Kanbanで、カードを列へ動かして状態を更新します。詳細は、カードをクリックして編集します。
 4. ガントで、日程、進捗、遅延、先行Taskとの関係を確認します。日程は、Taskの開始日と期限で決まります。
@@ -83,7 +83,7 @@ $env:PORT=5000; npm start
 
 ```text
 context/       背景・範囲・制約・用語
-requirements/ 要求（REQ-xxxx）
+../epf-project/docs/requirements/ 要求（REQ-xxxx）
 tasks/        Taskの正本（EPF-xxxx、1タスク1ファイル）
 masters/      担当者マスタ（owners.md）
 plans/        既存のPLANファイル（移動・改名しない）
@@ -117,7 +117,7 @@ Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `targ
 
 Taskは画面の「新規Task」から作成し、`tasks/EPF-nnnn.md` として保存します。
 
-ボード見出し右の「新規Task」からフォームで作成します。タイトルと担当者は必須で、不正な入力は補完せずエラーを表示します。Requirementは任意で、指定する場合は `requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文欄には、背景・目的・完了条件・関連の見出しを持つ雛形が最初から入っており、編集して作成できます。空にして作成した場合も、同じ雛形を保存します。ExecPlanは画面では指定せず、必要な場合にFront Matterの`exec_plan`へ規定のパスを記録します。
+ボード見出し右の「新規Task」からフォームで作成します。タイトルと担当者は必須で、不正な入力は補完せずエラーを表示します。Requirementは任意で、指定する場合は `../epf-project/docs/requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文欄には、背景・目的・完了条件・関連の見出しを持つ雛形が最初から入っており、編集して作成できます。空にして作成した場合も、同じ雛形を保存します。ExecPlanは画面では指定せず、必要な場合にFront Matterの`exec_plan`へ規定のパスを記録します。
 
 APIは `POST /api/tasks`（作成。成功は201、入力不正は400）と `GET /api/requirements`（Requirement一覧と本文の雛形）です。
 
