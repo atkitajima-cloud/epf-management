@@ -138,6 +138,12 @@ for (const name of indexed.get('epf-management')) {
   } catch (error) { errors.push(`${name}: ${error.message}`); }
 }
 
+const designDocIndexScript = path.join(workspace, 'epf-project', 'scripts', 'generate-design-doc-index.mjs');
+if (fs.existsSync(designDocIndexScript)) {
+  try { execFileSync('node', [designDocIndexScript, '--check'], { cwd: path.join(workspace, 'epf-project'), encoding: 'utf8' }); }
+  catch (error) { errors.push('epf-project/docs/design-docs/index.mdが最新ではありません（node scripts/generate-design-doc-index.mjsで再生成する）'); }
+}
+
 if (report) console.log(JSON.stringify({ findings, errors }, null, 2));
 else {
   for (const error of errors) console.error(error);

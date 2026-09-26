@@ -15,4 +15,4 @@ description: "EPF ManagementのTaskを着手、review、完了へ進める際に
 2. そこに書かれた参照先、通知、実施手順、制約、完了報告に従う。
 3. 正本を読めない場合は、Taskの状態を変更しない。
 
-正本は`.agents/skills/`に置いており、Codexが自動検出する配置である。Claude Codeは`.claude/skills/`を探索するため、このファイルで同じSkillへ到達できるようにしている。配置方針は`../../../../epf-project/docs/design-docs/ai-skill-operation.md`を参照する。
+正本は`.agents/skills/`に置いており、Codexが自動検出する配置である。Claude Codeは`.claude/skills/`を探索するため、このファイルで同じSkillへ到達できるようにしている。配置方針は`../../../../epf-project/docs/design-docs/01-開発の進め方/DD-01-03-AI駆動開発の共通Skill運用方針.md`を参照する。

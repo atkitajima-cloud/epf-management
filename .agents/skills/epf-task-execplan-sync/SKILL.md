@@ -10,10 +10,10 @@ EPF ManagementのTask Markdownを正本として、関連するExecPlanとの状
 ## 参照する正本
 
 - このrepoの`AGENTS.md`
-- `../epf-project/docs/design-docs/task-execplan-sync.md`
-- `../epf-project/docs/design-docs/development-workflow-and-branch-operation.md`（実装Taskのbranch・Pull Request・AWS principalの運用）
-- `../epf-project/docs/design-docs/ai-skill-operation.md`
-- `../epf-project/docs/design-docs/ai-work-defect-record-and-improvement-loop.md`（AI作業不備の記録対象と改善ループ）
+- `../epf-project/docs/design-docs/01-開発の進め方/DD-01-01-TaskとExecPlanの同期ルール.md`
+- `../epf-project/docs/design-docs/01-開発の進め方/DD-01-02-開発フローとブランチ運用.md`（実装Taskのbranch・Pull Request・AWS principalの運用）
+- `../epf-project/docs/design-docs/01-開発の進め方/DD-01-03-AI駆動開発の共通Skill運用方針.md`
+- `../epf-project/docs/design-docs/01-開発の進め方/DD-01-04-AI作業不備の記録と改善ループ.md`（AI作業不備の記録対象と改善ループ）
 - 対象の`tasks/EPF-XXXX.md`と、そこからリンクされるExecPlan
 
 Skill内へTaskの状態、設計判断、完了日、後続Taskを複製して保持しない。常に対象Markdownを読んで判断する。
@@ -37,7 +37,7 @@ Task・ExecPlanの状態または記録を実際に確認・更新する作業�
 
 ### AI作業不備の確認
 
-人間から不備・漏れ・再発防止を指摘されたとき、またはtest・review・受入・deploy後確認で想定外を検出したときは、即時対応の後に[AI作業不備の記録と改善ループ](../../../../epf-project/docs/design-docs/ai-work-defect-record-and-improvement-loop.md)の記録対象を照合する。該当する場合は、[AI作業不備台帳](../../../../epf-project/docs/references/ai-work-defect-log.md)へ事実、検出経路、影響、即時対応、再発防止の対応Taskを記録または更新する。
+人間から不備・漏れ・再発防止を指摘されたとき、またはtest・review・受入・deploy後確認で想定外を検出したときは、即時対応の後に[AI作業不備の記録と改善ループ](../../../../epf-project/docs/design-docs/01-開発の進め方/DD-01-04-AI作業不備の記録と改善ループ.md)の記録対象を照合する。該当する場合は、[AI作業不備台帳](../../../../epf-project/docs/references/ai-work-defect-log.md)へ事実、検出経路、影響、即時対応、再発防止の対応Taskを記録または更新する。
 
 Taskを`review`または`done`へ進める前にも、未記録の人間指摘・検証不備がないか、台帳の`対応中`または`改善待ち`の記録に必要な対応Taskがあるかを確認する。緊急修正を台帳記録待ちにしない。対象外の仕様変更・人間判断や、AIの関与を確認できない外部障害は台帳へ記録しない。
 
