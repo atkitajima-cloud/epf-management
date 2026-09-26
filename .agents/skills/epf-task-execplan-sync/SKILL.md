@@ -51,9 +51,11 @@ Taskを`review`または`done`へ進める前にも、未記録の人間指摘�
 ### review
 
 - Task本文に未チェックの完了条件がないことを確認する。未チェックがある場合はTaskを`review`へ進めず、実施・検証を継続する。
+- 実装を伴うTaskでは、検証と自己レビューの後に対象変更をcommitし、pushする。push前のcommitで停止せず、push済みcommitの記録と`review`遷移まで続ける。
 - Taskを`review`へ進める前に、ExecPlanの`実装記録`を確認する。実装を伴うTaskでは、対象repoごとにpush済みであることを確認した短縮commit SHAとリモートcommit URLが記録されていることを確認する。複数repo・複数commitは行を追加する。
 - 実装を伴わないTaskでは、ExecPlanの`実装記録`に実装不要の理由が記録されていることを確認する。push前のローカルcommitは記録対象にしない。
 - 上記の確認を含む同期Skillが正常終了した後、Task保存APIで`sync_status: passed`、`sync_target: review`を記録する。APIがfingerprintと記録時刻を保存した後、状態を`review`へ変更する。
+- `review`へ進めた時点で停止し、人間レビューを待つ。人間レビュー後の`done`遷移は、明示された依頼がある場合だけ行う。
 - 実施内容、検証方法、確認待ちの事項をExecPlanに記録する。
 - 実装または設計の完了条件を推測で完了にしない。人間レビュー待ちの内容を明示する。
 - AI作業不備の確認を行い、該当する場合は台帳と対応Taskのリンクを記録する。
