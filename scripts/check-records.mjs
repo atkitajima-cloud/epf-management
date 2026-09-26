@@ -126,9 +126,10 @@ for (const name of indexed.get('epf-management')) {
       errors.push(`${id}: Taskテンプレートの見出しが不足`);
     }
     if (task.data.status === 'done') {
-      if (!uncheckedExceptions.has(id) && /^\s*-\s+\[ \]\s+/m.test(task.body)) errors.push(`${id}: 未チェックの完了条件`);
+      const isDeleted = Boolean(task.data.deleted_at);
+      if (!isDeleted && !uncheckedExceptions.has(id) && /^\s*-\s+\[ \]\s+/m.test(task.body)) errors.push(`${id}: 未チェックの完了条件`);
       const recordRequired = implementationTasks.has(id) || (!legacyDone.has(id) && ['epf-backend', 'epf-frontend'].includes(task.data.target_repo));
-      if (recordRequired) {
+      if (!isDeleted && recordRequired) {
         const section = task.body.split(/^## 実装記録\s*$/m)[1]?.split(/^##? /m)[0];
         if (!section || !['branch:', 'Pull Request:', 'merge commit:', 'Pipeline:', '検証:', 'cleanup:'].every((field) => section.includes(field))) {
           errors.push(`${id}: 実装記録の必須項目が不足`);

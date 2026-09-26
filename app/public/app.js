@@ -94,11 +94,15 @@ function renderBoard() {
 }
 
 function renderCard(task) {
+  const deletedBadge = task.deleted_at ? '<span class="priority low">削除済み</span>' : '';
+  const completedLabel = task.deleted_at
+    ? `削除 ${task.deleted_at.slice(5, 10)}`
+    : `完了 ${task.completed_at?.slice(5) || '日付不明'}`;
   return `
-    <article class="task-card" draggable="true" tabindex="0" data-id="${task.id}" aria-label="${escapeHtml(task.title)}">
-      <div class="card-top"><span class="task-id">${task.id}</span><span class="card-badges">${repositoryBadge(task.target_repo)}<span class="priority ${task.priority}">${task.priority}</span></span></div>
+    <article class="task-card${task.deleted_at ? ' deleted' : ''}" draggable="${task.deleted_at ? 'false' : 'true'}" tabindex="0" data-id="${task.id}" aria-label="${escapeHtml(task.title)}">
+      <div class="card-top"><span class="task-id">${task.id}</span><span class="card-badges">${repositoryBadge(task.target_repo)}${deletedBadge}<span class="priority ${task.priority}">${task.priority}</span></span></div>
       <div class="card-title">${escapeHtml(task.title)}</div>
-      <div class="card-meta"><span class="owner">◉ ${escapeHtml(task.owner)}</span><span>${task.status === 'done' ? `完了 ${task.completed_at?.slice(5) || '日付不明'}` : task.due ? `◷ ${task.due.slice(5)}` : '期限なし'}</span></div>
+      <div class="card-meta"><span class="owner">◉ ${escapeHtml(task.owner)}</span><span>${task.status === 'done' ? completedLabel : task.due ? `◷ ${task.due.slice(5)}` : '期限なし'}</span></div>
     </article>`;
 }
 
@@ -107,6 +111,7 @@ function wireBoardEvents() {
     card.addEventListener('click', () => openTask(card.dataset.id));
     card.addEventListener('keydown', (event) => { if (event.key === 'Enter') openTask(card.dataset.id); });
     card.addEventListener('dragstart', () => {
+      if (card.draggable === false) return;
       state.draggingId = card.dataset.id;
       card.classList.add('dragging');
     });
@@ -172,12 +177,16 @@ async function openTask(id) {
     taskForm.elements.revision.value = task.revision;
     for (const field of ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'body']) {
       taskForm.elements[field].value = task[field] || '';
+      taskForm.elements[field].disabled = Boolean(task.deleted_at);
     }
     document.querySelector('#saveStatus').textContent = '';
-    document.querySelector('#acceptanceStatus').textContent = task.accepted_by
+    document.querySelector('#acceptanceStatus').textContent = task.deleted_at
+      ? `削除済み: ${task.deleted_at}`
+      : task.accepted_by
       ? `受入済み: ${task.accepted_by}（${task.actual_completed_at}）` : '受入未記録';
     document.querySelector('#acceptTaskButton').disabled = task.status !== 'review' || Boolean(task.accepted_by);
-    document.querySelector('#deleteTaskButton').hidden = task.status === 'done';
+    document.querySelector('#deleteTaskButton').hidden = task.status === 'done' || Boolean(task.deleted_at);
+    taskForm.querySelector('[type="submit"]').disabled = Boolean(task.deleted_at);
     dialog.showModal();
   } catch (error) { toast(error.message); }
 }
@@ -223,14 +232,14 @@ document.querySelector('#acceptTaskButton').addEventListener('click', async () =
 
 document.querySelector('#deleteTaskButton').addEventListener('click', async () => {
   const id = document.querySelector('#dialogTaskId').textContent;
-  if (!window.confirm(`${id} を削除しますか？この操作はGit履歴には残りますが、画面からは消えます。`)) return;
+  if (!window.confirm(`${id} を削除済みとして記録します。Taskは画面のdone列に残り、編集できなくなります。`)) return;
   const button = document.querySelector('#deleteTaskButton');
   setBusy(button, true);
   try {
     await api(`/api/tasks/${id}`, { method: 'DELETE', body: JSON.stringify({ revision: taskForm.elements.revision.value }) });
     dialog.close();
     await Promise.all([loadTasks(), loadGit()]);
-    toast(`${id} を削除しました`);
+    toast(`${id} を削除済みとして記録しました`);
   } catch (error) {
     document.querySelector('#saveStatus').textContent = error.message;
     if (error.status === 409 && window.confirm('他の人が先に更新しました。最新の内容を読み直しますか？')) await openTask(id);

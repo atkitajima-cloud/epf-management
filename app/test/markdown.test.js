@@ -58,19 +58,19 @@ test('exec_planはTask更新で保存され、読み直しても保持される'
   assert.match(await fs.readFile(path.join(root, 'tasks', 'EPF-0001.md'), 'utf8'), /^exec_plan: epf-project\/docs\/exec-plans\/active\/EP-PJ-0048-01\.md$/m);
 });
 
-test('未完了Taskはrevision照合後に削除でき、完了済みTaskは削除できない', async (context) => {
+test('未完了Taskを論理削除してdone列に残し、削除済みTaskは変更できない', async (context) => {
   const root = await makeRoot(context);
   const current = await readTask(root, 'EPF-0001');
-  assert.deepEqual(await deleteTask(root, 'EPF-0001', current.revision), { id: 'EPF-0001' });
-  await assert.rejects(readTask(root, 'EPF-0001'), (error) => error.code === 'ENOENT');
-
-  await fs.writeFile(path.join(root, 'tasks', 'EPF-0001.md'), serializeMarkdown(sample, '# Sample'), 'utf8');
-  await updateCurrent(root, 'EPF-0001', { status: 'review' });
-  await acceptCurrent(root, 'EPF-0001');
-  await updateCurrent(root, 'EPF-0001', { status: 'done' });
-  const done = await readTask(root, 'EPF-0001');
-  await assert.rejects(deleteTask(root, 'EPF-0001', done.revision), /完了済みTaskは削除できません/);
-  assert.equal((await readTask(root, 'EPF-0001')).status, 'done');
+  const deleted = await deleteTask(root, 'EPF-0001', current.revision);
+  assert.equal(deleted.id, 'EPF-0001');
+  assert.match(deleted.deleted_at, /Z$/);
+  const saved = await readTask(root, 'EPF-0001');
+  assert.equal(saved.status, 'done');
+  assert.equal(saved.deleted_at, deleted.deleted_at);
+  assert.equal(saved.accepted_by ?? '', '');
+  assert.equal((await listTasks(root)).some((task) => task.id === 'EPF-0001'), true);
+  await assert.rejects(deleteTask(root, 'EPF-0001', saved.revision), /すでに削除済み/);
+  await assert.rejects(updateTask(root, 'EPF-0001', { title: '変更' }, saved.revision), /削除済みTaskは変更できません/);
 });
 
 test('Task MarkdownだけをVS Code URLへ変換できる', () => {

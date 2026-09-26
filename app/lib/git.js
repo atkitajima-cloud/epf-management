@@ -295,7 +295,9 @@ export async function commitAndPush(root, input, { regenerateWbs } = {}) {
     };
     try {
       const files = expected.map(({ path: file }) => file);
-      await git(root, ['add', '--', ...files]);
+      // `git add -- <deleted file>` は pathspec 不一致になるため、追加・更新・削除を同じ確認済み一覧から
+      // stage できる `-A` を使う。対象パスは直前に preview で検証済みである。
+      await git(root, ['add', '-A', '--', ...files]);
       for (const item of expected) {
         const stagedHash = await optional(root, ['rev-parse', `:${item.path}`]);
         if (item.fingerprint === null ? Boolean(stagedHash) : stagedHash !== item.fingerprint) {

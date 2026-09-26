@@ -91,6 +91,21 @@ async function commitAndPushConfirmed(dir, message, options = {}) {
   return commitAndPush(dir, { message, changes }, options);
 }
 
+test('確認済みの削除ファイルをCommit & Pushできる', async (context) => {
+  const { a, b } = await setup(context);
+  await commitFile(a, 'tasks/EPF-0046.md', '削除対象\n', 'Taskを追加');
+  await git(a, 'push', '-q');
+  await git(b, 'pull', '-q', '--ff-only');
+  await fs.rm(path.join(b, 'tasks', 'EPF-0046.md'));
+
+  const result = await commitAndPushConfirmed(b, 'Taskを削除', { regenerateWbs: regenerate(b) });
+
+  assert.equal(result.committed, true);
+  assert.equal(result.pushed, true);
+  assert.equal(existsSync(path.join(b, 'tasks', 'EPF-0046.md')), false);
+  assert.equal(await git(b, 'status', '--porcelain'), '');
+});
+
 test('Git repositoryでない場合は空の履歴を返す', async (context) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'epf-not-git-'));
   context.after(() => fs.rm(dir, { recursive: true, force: true }));

@@ -130,7 +130,7 @@ function formatScalar(value) {
 }
 
 export function serializeMarkdown(data, body) {
-  const preferred = ['id', 'title', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'accepted_by', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan'];
+  const preferred = ['id', 'title', 'status', 'completed_at', 'deleted_at', 'actual_started_at', 'actual_completed_at', 'accepted_by', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan'];
   const legacy = new Set(['frontend_repo', 'backend_repo', 'plan']);
   const keys = [...preferred.filter((key) => key in data), ...Object.keys(data).filter((key) => !preferred.includes(key) && !legacy.has(key))];
   return `---\n${keys.map((key) => data[key] === '' ? `${key}:` : `${key}: ${formatScalar(data[key])}`).join('\n')}\n---\n\n${String(body ?? '').trim()}\n`;
@@ -153,7 +153,9 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
   for (const field of ['actual_started_at', 'actual_completed_at']) {
     if (task[field] && !validTimestamp(task[field])) throw new Error(`${field}はタイムゾーン付きISO 8601形式で指定してください`);
   }
-  if (task.status === 'done' && !legacyDone.has(task.id)) {
+  if (task.deleted_at && !validTimestamp(task.deleted_at)) throw new Error('deleted_atはタイムゾーン付きISO 8601形式で指定してください');
+  if (task.deleted_at && task.status !== 'done') throw new Error('deleted_atを持つTaskのstatusはdoneでなければなりません');
+  if (task.status === 'done' && !task.deleted_at && !legacyDone.has(task.id)) {
     if (!task.accepted_by || !task.actual_completed_at) throw new Error('statusがdoneのTaskにはaccepted_byとactual_completed_atが必要です');
     if (task.accepted_by !== task.owner) throw new Error('accepted_byはTaskのownerと一致する必要があります');
     if (task.completed_at !== japanDate(task.actual_completed_at)) throw new Error('completed_atはactual_completed_atの日本時間の日付と一致する必要があります');
@@ -173,7 +175,7 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
   if (checkHeadings) {
     for (const heading of TASK_HEADINGS) if (!String(body).split(/\r?\n/).includes(heading)) throw new Error(`${heading}の見出しが必要です`);
   }
-  if (body !== undefined && task.status === 'done' && !uncheckedDoneExceptions.has(task.id) && /^\s*-\s+\[ \]\s+/m.test(String(body))) {
+  if (body !== undefined && task.status === 'done' && !task.deleted_at && !uncheckedDoneExceptions.has(task.id) && /^\s*-\s+\[ \]\s+/m.test(String(body))) {
     throw new Error('未チェックの完了条件があります');
   }
 }
@@ -332,6 +334,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
     validateTask(parsed.data, await validationBaseline(root));
     const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
     if (expectedRevision !== existing.revision) throw taskConflict(existing);
+    if (existing.deleted_at) throw new Error('削除済みTaskは変更できません');
     const allowed = ['title', 'status', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan', 'actual_started_at'];
     const data = { ...existing };
     delete data.body;
@@ -373,9 +376,14 @@ export async function deleteTask(root, id, expectedRevision) {
     validateTask(parsed.data, await validationBaseline(root));
     const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
     if (expectedRevision !== existing.revision) throw taskConflict(existing);
+    if (existing.deleted_at) throw new Error('このTaskはすでに削除済みです');
     if (existing.status === 'done') throw new Error('完了済みTaskは削除できません。必要なら完了前の状態へ戻してください');
-    await fs.unlink(file);
-    return { id };
+    const deleted_at = new Date().toISOString();
+    const data = { ...parsed.data, status: 'done', completed_at: japanDate(deleted_at), deleted_at };
+    validateTask(data, { ...(await validationBaseline(root)), body: parsed.body, checkHeadings: false });
+    const contents = serializeMarkdown(data, parsed.body);
+    await writeTaskAtomically(file, contents);
+    return { id, deleted_at, revision: taskRevision(contents) };
   });
 }
 
