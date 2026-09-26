@@ -187,6 +187,22 @@ test('受入を別操作で記録したTaskだけ完了でき、完了日を受�
   assert.deepEqual(sorted.map((task) => task.id), ['EPF-0004', 'EPF-0002', 'EPF-0001', 'EPF-0003']);
 });
 
+test('完了条件が未チェックのままdoneへ更新しようとすると拒否される', async (context) => {
+  const root = await makeRoot(context);
+  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [ ] 未着手の条件\n- [x] 済んだ条件' });
+  await updateCurrent(root, 'EPF-0001', { status: 'review' });
+  await acceptCurrent(root, 'EPF-0001');
+  await assert.rejects(updateCurrent(root, 'EPF-0001', { status: 'done' }), /未チェックの完了条件があります/);
+  assert.equal((await readTask(root, 'EPF-0001')).status, 'review');
+
+  await updateCurrent(root, 'EPF-0001', { status: 'ready' });
+  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [x] 未着手の条件\n- [x] 済んだ条件' });
+  await updateCurrent(root, 'EPF-0001', { status: 'review' });
+  await acceptCurrent(root, 'EPF-0001');
+  const completed = await updateCurrent(root, 'EPF-0001', { status: 'done' });
+  assert.equal(completed.status, 'done');
+});
+
 test('直接編集の受入欄欠落と不正な実日時は無効Taskになる', async (context) => {
   const root = await makeRoot(context);
   const direct = { ...sample, id: 'EPF-0002', status: 'done', completed_at: '2026-09-24' };

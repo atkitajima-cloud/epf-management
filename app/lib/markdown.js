@@ -68,10 +68,11 @@ async function validationBaseline(root) {
     const source = await fs.readFile(path.join(root, TASK_BASELINE), 'utf8');
     const data = JSON.parse(source);
     return {
-      legacyDone: new Set(data.legacyDoneTaskIds || [])
+      legacyDone: new Set(data.legacyDoneTaskIds || []),
+      uncheckedDoneExceptions: new Set(data.uncheckedDoneExceptionIds || [])
     };
   } catch (error) {
-    if (error.code === 'ENOENT') return { legacyDone: new Set() };
+    if (error.code === 'ENOENT') return { legacyDone: new Set(), uncheckedDoneExceptions: new Set() };
     throw error;
   }
 }
@@ -132,7 +133,7 @@ export function parseDependencies(value) {
   return String(value || '').split(',').map((id) => id.trim()).filter(Boolean);
 }
 
-export function validateTask(task, { legacyDone = new Set(), body } = {}) {
+export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExceptions = new Set(), body, checkHeadings = body !== undefined } = {}) {
   for (const field of REQUIRED_FIELDS) if (!String(task[field] ?? '').trim()) throw new Error(`${field}は必須です`);
   if (!TASK_ID_PATTERN.test(task.id)) throw new Error('idはEPF-0000または日時形式で指定してください');
   if (!STATUSES.includes(task.status)) throw new Error(`statusは${STATUSES.join(', ')}のいずれかです`);
@@ -155,8 +156,11 @@ export function validateTask(task, { legacyDone = new Set(), body } = {}) {
   }
   if (task.start && task.due && task.start > task.due) throw new Error('startはdue以前の日付を指定してください');
   for (const id of parseDependencies(task.depends_on)) if (!TASK_ID_PATTERN.test(id)) throw new Error('depends_onには有効なTask IDをカンマ区切りで指定してください');
-  if (body !== undefined) {
+  if (checkHeadings) {
     for (const heading of TASK_HEADINGS) if (!String(body).split(/\r?\n/).includes(heading)) throw new Error(`${heading}の見出しが必要です`);
+  }
+  if (body !== undefined && task.status === 'done' && !uncheckedDoneExceptions.has(task.id) && /^\s*-\s+\[ \]\s+/m.test(String(body))) {
+    throw new Error('未チェックの完了条件があります');
   }
 }
 
@@ -337,7 +341,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
       data.accepted_by = '';
       data.actual_completed_at = '';
     }
-    validateTask(data, await validationBaseline(root));
+    validateTask(data, { ...(await validationBaseline(root)), ...(data.status === 'done' ? { body, checkHeadings: false } : {}) });
     // 担当者を変更するときだけマスタと照合する。
     if (data.owner !== existing.owner && !(await requireOwners(root)).includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
     const contents = serializeMarkdown(data, body);
