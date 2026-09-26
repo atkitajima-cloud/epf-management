@@ -232,6 +232,22 @@ test('共有側で先に更新されたTaskはcommitせず、最新版へ更新�
   assert.equal(await git(remote, 'show', `main:${taskPath}`), '---\nid: EPF-0001\ntitle: やり直した変更\n---');
 });
 
+test('自分の未pushのcommitが対象Taskを変更しているだけなら、共有側の更新がなくても誤って競合扱いにしない', async (context) => {
+  const { remote, b } = await setup(context);
+  const taskPath = 'tasks/EPF-0001.md';
+  const created = '---\nid: EPF-0001\ntitle: original\n---\n';
+  await commitFile(b, taskPath, created, 'Taskを作成');
+
+  const inProgress = '---\nid: EPF-0001\ntitle: 作業中\n---\n';
+  await fs.writeFile(path.join(b, taskPath), inProgress, 'utf8');
+
+  const result = await commitAndPushConfirmed(b, '受入と完了');
+  assert.equal(result.outcome, 'pushed');
+  assert.equal(result.committed, true);
+  assert.equal(result.pushed, true);
+  assert.equal(await git(remote, 'show', `main:${taskPath}`), inProgress.trimEnd());
+});
+
 test('別々のcloneで1ミリ秒異なる時刻に作成したTaskは異なるIDになる', async (context) => {
   const { a, b } = await setup(context);
   for (const root of [a, b]) {

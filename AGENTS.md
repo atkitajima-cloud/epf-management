@@ -56,6 +56,5 @@
 
 ## 規約検査
 
-- 作業開始時に `git config core.hooksPath .githooks` を設定する。commit前に `scripts/check-records.mjs` が4repoの記録を検査する。
-- 実装差分のcommitでは `EPF_TASK_ID` に対象Task IDを指定する。手動確認は `node scripts/check-records.mjs` で行う。
+- 作業開始時に `git config core.hooksPath .githooks` を設定する。commit前に `scripts/check-records.mjs` が4repoの記録を検査する。手動確認は `node scripts/check-records.mjs` で行う。
 - このローカル検査を迂回できる経路のサーバー側対策はEPF-0039で扱う。

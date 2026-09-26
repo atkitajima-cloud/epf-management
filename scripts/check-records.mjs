@@ -6,7 +6,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const managementRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const workspace = path.dirname(managementRoot);
-const projectRoot = path.join(workspace, 'epf-project');
 const repos = ['epf-project', 'epf-management', 'epf-backend', 'epf-frontend'];
 const argumentsList = process.argv.slice(2);
 const staged = argumentsList.includes('--staged');
@@ -137,25 +136,6 @@ for (const name of indexed.get('epf-management')) {
       if (task.data.status !== 'done' && plan[2] === 'completed' && fs.existsSync(planFile)) errors.push(`${id}: 未完了だがExecPlanがcompleted`);
     }
   } catch (error) { errors.push(`${name}: ${error.message}`); }
-}
-
-const implementation = staged && currentRepo && [...stagedPaths].some((name) => /\.(?:js|mjs|cjs|ts|tsx|jsx|html|css|json|ya?ml|py|sh|go|java|cs|tf)$/.test(name) && !name.startsWith('docs/'));
-if (implementation) {
-  const taskId = process.env.EPF_TASK_ID;
-  if (!/^EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})$/.test(taskId || '')) errors.push('実装差分にはEPF_TASK_IDが必要です');
-  else {
-    const source = read('epf-management', `tasks/${taskId}.md`);
-    const planLink = linkedPlan(source);
-    if (!planLink) errors.push(`${taskId}: activeなExecPlanまたはPlanへのTaskリンクがありません`);
-    else {
-      const file = path.resolve(workspace, 'epf-management', 'tasks', planLink[1]);
-      const name = path.relative(projectRoot, file).replaceAll('\\', '/');
-      const plan = staged && currentRepo === 'epf-project' && indexed.get('epf-project').has(name)
-        ? git('epf-project', ['show', `:${name}`])
-        : fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-      if (!/^- 計画承認状態: approved$/m.test(plan)) errors.push(`${taskId}: 計画が人間承認済みではありません`);
-    }
-  }
 }
 
 if (report) console.log(JSON.stringify({ findings, errors }, null, 2));

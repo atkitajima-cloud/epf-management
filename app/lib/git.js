@@ -48,8 +48,10 @@ async function fetchUpstream(root) {
   } catch (error) { return { ok: false, error: message(error) }; }
 }
 
+// 共有側だけが分岐後に変更したファイル。自分の未pushのcommitがこのファイルを変更していても、
+// 共有側にその変更がなければ含めない（2点比較のHEAD @{u}は自分のahead分も差分に含めてしまい誤検知する）。
 async function remoteChangedPaths(root) {
-  const { stdout } = await git(root, ['diff', '--name-only', '-z', 'HEAD', '@{u}']);
+  const { stdout } = await git(root, ['diff', '--name-only', '-z', 'HEAD...@{u}']);
   return new Set(stdout.split('\0').filter(Boolean));
 }
 
