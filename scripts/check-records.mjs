@@ -64,8 +64,8 @@ function execPlanFile(value) {
 }
 
 function previousTask(repo, name) {
-  try { return git(repo, ['show', `HEAD:${name}`]); }
-  catch { return null; }
+  const exists = git(repo, ['ls-tree', '-r', '--name-only', 'HEAD', '--', name]).trim();
+  return exists ? git(repo, ['show', `HEAD:${name}`]) : null;
 }
 
 function execPlanExists(plan) {
@@ -135,11 +135,11 @@ for (const name of indexed.get('epf-management')) {
       if (!isDeleted && !uncheckedExceptions.has(id) && /^\s*-\s+\[ \]\s+/m.test(task.body)) errors.push(`${id}: 未チェックの完了条件`);
     }
     const previous = staged && currentRepo === 'epf-management' && stagedPaths.has(name) ? previousTask('epf-management', name) : null;
-    if (previous) {
-      const before = parseMarkdown(previous).data;
-      if (before.status !== task.data.status && ['review', 'done'].includes(task.data.status) && !task.data.deleted_at && !hasValidTransitionEvidence(task.data, task.body)) {
-        errors.push(`${id}: ${task.data.status}への変更には有効な同期証跡または人間確認が必要`);
-      }
+    const before = previous ? parseMarkdown(previous).data : null;
+    const transitionsToProtectedStatus = ['review', 'done'].includes(task.data.status)
+      && (isNew || (before && before.status !== task.data.status));
+    if (transitionsToProtectedStatus && !task.data.deleted_at && !hasValidTransitionEvidence(task.data, task.body)) {
+      errors.push(`${id}: ${task.data.status}への変更には有効な同期証跡または人間確認が必要`);
     }
     if (task.data.status === 'done') {
       const isDeleted = Boolean(task.data.deleted_at);

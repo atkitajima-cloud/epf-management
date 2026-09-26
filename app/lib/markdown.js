@@ -31,8 +31,6 @@ function taskRevision(source) {
   return createHash('sha256').update(source, 'utf8').digest('hex');
 }
 
-const SYNC_EVIDENCE_FIELDS = new Set(['sync_status', 'sync_target', 'sync_at', 'sync_fingerprint', 'human_checked', 'human_checked_at', 'human_checked_fingerprint']);
-
 export function taskSyncFingerprint(task, body = '') {
   const fields = ['title', 'owner', 'priority', 'target_repo', 'start', 'due', 'depends_on', 'requirement', 'exec_plan', 'actual_started_at'];
   const value = { body: String(body).replace(/\r\n/g, '\n').trim() };
