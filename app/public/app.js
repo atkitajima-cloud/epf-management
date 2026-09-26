@@ -180,11 +180,6 @@ async function openTask(id) {
       taskForm.elements[field].disabled = Boolean(task.deleted_at);
     }
     document.querySelector('#saveStatus').textContent = '';
-    document.querySelector('#acceptanceStatus').textContent = task.deleted_at
-      ? `削除済み: ${task.deleted_at}`
-      : task.accepted_by
-      ? `受入済み: ${task.accepted_by}（${task.actual_completed_at}）` : '受入未記録';
-    document.querySelector('#acceptTaskButton').disabled = task.status !== 'review' || Boolean(task.accepted_by);
     document.querySelector('#deleteTaskButton').hidden = task.status === 'done' || Boolean(task.deleted_at);
     taskForm.querySelector('[type="submit"]').disabled = Boolean(task.deleted_at);
     dialog.showModal();
@@ -212,23 +207,6 @@ const createDialog = document.querySelector('#createDialog');
 const createForm = document.querySelector('#createForm');
 createForm.elements.status.innerHTML = statuses.filter((status) => status.id !== 'done')
   .map((status) => `<option value="${status.id}">${status.label}</option>`).join('');
-
-document.querySelector('#acceptTaskButton').addEventListener('click', async () => {
-  const id = document.querySelector('#dialogTaskId').textContent;
-  if (!window.confirm(`${id} の成果物を確認し、人間受入を記録しますか？`)) return;
-  const button = document.querySelector('#acceptTaskButton');
-  setBusy(button, true);
-  try {
-    await api(`/api/tasks/${id}/accept`, { method: 'POST', body: JSON.stringify({ revision: taskForm.elements.revision.value }) });
-    dialog.close();
-    await Promise.all([loadTasks(), loadGit()]);
-    await openTask(id);
-    toast(`${id} の受入を記録しました。完了への変更は別操作で行ってください`);
-  } catch (error) {
-    document.querySelector('#saveStatus').textContent = error.message;
-    if (error.status === 409 && window.confirm('他の人が先に更新しました。最新の内容を読み直しますか？\n読み直すと入力中の変更は失われます。')) await openTask(id);
-  } finally { setBusy(button, false); }
-});
 
 document.querySelector('#deleteTaskButton').addEventListener('click', async () => {
   const id = document.querySelector('#dialogTaskId').textContent;

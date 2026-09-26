@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, deleteTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, taskIdForDate, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
+import { BODY_TEMPLATE, buildGanttData, createTask, deleteTask, generateWbs, listOwners, listRequirements, listTasks, parseMarkdown, readTask, progressForTask, serializeMarkdown, sortTasksForBoard, TARGET_REPOSITORIES, TARGET_REPOSITORY_OPTIONS, taskIdForDate, updateTask, validateTask, vscodeUriForTask } from '../lib/markdown.js';
 
 const sample = {
   id: 'EPF-0001', title: 'Sample', status: 'backlog', owner: 'tester',
@@ -15,10 +15,37 @@ async function updateCurrent(root, id, changes) {
   return updateTask(root, id, changes, current.revision);
 }
 
-async function acceptCurrent(root, id) {
-  const current = await readTask(root, id);
-  return acceptTask(root, id, current.revision);
-}
+test('ReviewからDoneへ一度の状態変更で完了日時を記録する', async (context) => {
+  const root = await makeRoot(context);
+  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [x] 完了' });
+  await updateCurrent(root, 'EPF-0001', { status: 'review' });
+  const completed = await updateCurrent(root, 'EPF-0001', { status: 'done' });
+  assert.equal(completed.status, 'done');
+  assert.match(completed.actual_completed_at, /Z$/);
+  assert.match(completed.completed_at, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(completed.accepted_by ?? '', '');
+  const reopened = await updateCurrent(root, 'EPF-0001', { status: 'ready' });
+  assert.equal(reopened.actual_completed_at ?? '', '');
+  assert.equal(reopened.completed_at, '');
+});
+
+test('Review以外からDoneへの状態変更は拒否する', async (context) => {
+  const root = await makeRoot(context);
+  await assert.rejects(updateCurrent(root, 'EPF-0001', { status: 'done' }), /review状態/);
+  await updateCurrent(root, 'EPF-0001', { status: 'doing' });
+  await assert.rejects(updateCurrent(root, 'EPF-0001', { status: 'done' }), /review状態/);
+});
+
+test('未チェックの完了条件があるTaskはReviewへ進めない', async (context) => {
+  const root = await makeRoot(context);
+  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [ ] 未完了' });
+  await assert.rejects(updateCurrent(root, 'EPF-0001', { status: 'review' }), /未チェックの完了条件/);
+  assert.equal((await readTask(root, 'EPF-0001')).status, 'backlog');
+  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [x] 完了' });
+  await updateCurrent(root, 'EPF-0001', { status: 'review' });
+  const completed = await updateCurrent(root, 'EPF-0001', { status: 'done' });
+  assert.equal(completed.status, 'done');
+});
 
 test('Front Matterと本文を往復できる', () => {
   const source = serializeMarkdown(sample, '# 完了条件\n\n- [ ] test');
@@ -206,57 +233,13 @@ test('Markdown直接編集による無効な対象repoのTaskはIDと理由を�
   assert.equal(buildGanttData(await listTasks(root)).tasks.some((task) => task.id === 'EPF-0002'), false);
 });
 
-test('受入を別操作で記録したTaskだけ完了でき、完了日を受入日時に合わせる', async (context) => {
-  const root = await makeRoot(context);
-  await assert.rejects(createTask(root, { title: '完了で作成', owner: 'tester', status: 'done' }), /新規Taskはdoneで作成できません/);
-  await assert.rejects(updateCurrent(root, 'EPF-0001', { status: 'done', accepted_by: 'tester', actual_completed_at: new Date().toISOString() }), /受入を先に別操作/);
-  await updateCurrent(root, 'EPF-0001', { status: 'review' });
-  const accepted = await acceptCurrent(root, 'EPF-0001');
-  assert.equal(accepted.accepted_by, 'tester');
-  assert.match(accepted.actual_completed_at, /Z$/);
-  const completed = await updateCurrent(root, 'EPF-0001', { status: 'done' });
-  assert.equal(completed.completed_at, new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(accepted.actual_completed_at)));
-  const reopened = await updateCurrent(root, 'EPF-0001', { status: 'ready' });
-  assert.equal(reopened.completed_at, '');
-  assert.equal(reopened.accepted_by, '');
-  await assert.rejects(updateCurrent(root, 'EPF-0001', { status: 'done' }), /受入を先に別操作/);
-  await updateCurrent(root, 'EPF-0001', { status: 'review' });
-  await acceptCurrent(root, 'EPF-0001');
-  const recompleted = await updateCurrent(root, 'EPF-0001', { status: 'done' });
-  assert.match(recompleted.completed_at, /^\d{4}-\d{2}-\d{2}$/);
-  assert.throws(() => validateTask({ ...sample, status: 'done', completed_at: '' }), /completed_at/);
-  const sorted = sortTasksForBoard([
-    { ...sample, id: 'EPF-0001', status: 'done', completed_at: '2026-09-20' },
-    { ...sample, id: 'EPF-0002', status: 'done', completed_at: '2026-09-21' },
-    { ...sample, id: 'EPF-0003', status: 'done', completed_at: '' },
-    { ...sample, id: 'EPF-0004', status: 'ready', completed_at: '' }
-  ]);
-  assert.deepEqual(sorted.map((task) => task.id), ['EPF-0004', 'EPF-0002', 'EPF-0001', 'EPF-0003']);
-});
-
-test('完了条件が未チェックのままdoneへ更新しようとすると拒否される', async (context) => {
-  const root = await makeRoot(context);
-  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [ ] 未着手の条件\n- [x] 済んだ条件' });
-  await updateCurrent(root, 'EPF-0001', { status: 'review' });
-  await acceptCurrent(root, 'EPF-0001');
-  await assert.rejects(updateCurrent(root, 'EPF-0001', { status: 'done' }), /未チェックの完了条件があります/);
-  assert.equal((await readTask(root, 'EPF-0001')).status, 'review');
-
-  await updateCurrent(root, 'EPF-0001', { status: 'ready' });
-  await updateCurrent(root, 'EPF-0001', { body: '# 完了条件\n\n- [x] 未着手の条件\n- [x] 済んだ条件' });
-  await updateCurrent(root, 'EPF-0001', { status: 'review' });
-  await acceptCurrent(root, 'EPF-0001');
-  const completed = await updateCurrent(root, 'EPF-0001', { status: 'done' });
-  assert.equal(completed.status, 'done');
-});
-
 test('直接編集の受入欄欠落と不正な実日時は無効Taskになる', async (context) => {
   const root = await makeRoot(context);
   const direct = { ...sample, id: 'EPF-0002', status: 'done', completed_at: '2026-09-24' };
   await fs.writeFile(path.join(root, 'tasks', 'EPF-0002.md'), serializeMarkdown(direct, BODY_TEMPLATE), 'utf8');
   const invalid = (await listTasks(root)).find((task) => task.id === 'EPF-0002');
   assert.equal(invalid.invalid, true);
-  assert.match(invalid.error, /accepted_by/);
+  assert.match(invalid.error, /actual_completed_at/);
   assert.throws(() => validateTask({ ...sample, actual_started_at: 'きのう' }), /actual_started_at/);
   assert.throws(() => validateTask({ ...sample, actual_completed_at: '2026-02-30T12:00:00+09:00' }), /actual_completed_at/);
 });
@@ -295,7 +278,7 @@ test('同じ版から同時更新した場合は先の保存を残し、後の�
   assert.equal(results[1].status, 'rejected');
   assert.equal(results[1].reason.code, 'TASK_CONFLICT');
   assert.equal((await readTask(root, 'EPF-0001')).title, '先の更新');
-  await assert.rejects(acceptTask(root, 'EPF-0001', original.revision), (error) => error.code === 'TASK_CONFLICT');
+  await assert.rejects(updateTask(root, 'EPF-0001', { title: '古い版の更新' }, original.revision), (error) => error.code === 'TASK_CONFLICT');
 });
 
 test('担当者マスタは「- ID」形式の行だけを読み、重複と不正な行を除く', async (context) => {

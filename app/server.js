@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { acceptTask, BODY_TEMPLATE, buildGanttData, createTask, deleteTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, TARGET_REPOSITORY_OPTIONS, updateTask, vscodeUriForTask } from './lib/markdown.js';
+import { BODY_TEMPLATE, buildGanttData, createTask, deleteTask, generateWbs, listOwners, listRequirements, listTasks, readTask, sortTasksForBoard, TARGET_REPOSITORY_OPTIONS, updateTask, vscodeUriForTask } from './lib/markdown.js';
 import { commitAndPush, getGitHistory, getGitPreview, getGitStatus, pullLatest, updateConflictedTasks } from './lib/git.js';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -62,11 +62,6 @@ async function handleApi(request, response, url) {
   if (request.method === 'DELETE' && taskMatch) {
     const { revision } = await readJson(request);
     return sendJson(response, 200, { deleted: await deleteTask(root, taskMatch[1], revision) });
-  }
-  if (request.method === 'POST' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})\/accept$/)) {
-    const id = url.pathname.split('/')[3];
-    const { revision } = await readJson(request);
-    return sendJson(response, 200, { task: await acceptTask(root, id, revision) });
   }
   if (request.method === 'PATCH' && url.pathname.match(/^\/api\/tasks\/EPF-(?:\d{4}|\d{17}|\d{8}-\d{6}-\d{3})\/status$/)) {
     const id = url.pathname.split('/')[3];

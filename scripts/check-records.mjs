@@ -125,9 +125,12 @@ for (const name of indexed.get('epf-management')) {
     if ((isNew || !missingHeadingExceptions.has(id)) && !['# 背景', '# 目的', '# 完了条件', '# 関連'].every((heading) => task.body.split(/\r?\n/).includes(heading))) {
       errors.push(`${id}: Taskテンプレートの見出しが不足`);
     }
-    if (task.data.status === 'done') {
+    if (['review', 'done'].includes(task.data.status)) {
       const isDeleted = Boolean(task.data.deleted_at);
       if (!isDeleted && !uncheckedExceptions.has(id) && /^\s*-\s+\[ \]\s+/m.test(task.body)) errors.push(`${id}: 未チェックの完了条件`);
+    }
+    if (task.data.status === 'done') {
+      const isDeleted = Boolean(task.data.deleted_at);
       const recordRequired = implementationTasks.has(id) || (!legacyDone.has(id) && ['epf-backend', 'epf-frontend'].includes(task.data.target_repo));
       if (!isDeleted && recordRequired) {
         const section = task.body.split(/^## 実装記録\s*$/m)[1]?.split(/^##? /m)[0];

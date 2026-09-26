@@ -156,8 +156,7 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
   if (task.deleted_at && !validTimestamp(task.deleted_at)) throw new Error('deleted_atはタイムゾーン付きISO 8601形式で指定してください');
   if (task.deleted_at && task.status !== 'done') throw new Error('deleted_atを持つTaskのstatusはdoneでなければなりません');
   if (task.status === 'done' && !task.deleted_at && !legacyDone.has(task.id)) {
-    if (!task.accepted_by || !task.actual_completed_at) throw new Error('statusがdoneのTaskにはaccepted_byとactual_completed_atが必要です');
-    if (task.accepted_by !== task.owner) throw new Error('accepted_byはTaskのownerと一致する必要があります');
+    if (!task.actual_completed_at) throw new Error('statusがdoneのTaskにはactual_completed_atが必要です');
     if (task.completed_at !== japanDate(task.actual_completed_at)) throw new Error('completed_atはactual_completed_atの日本時間の日付と一致する必要があります');
   }
   if (task.requirement && !/^REQ-\d{4}$/.test(task.requirement)) throw new Error('requirementはREQ-0000形式で指定してください');
@@ -175,7 +174,7 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
   if (checkHeadings) {
     for (const heading of TASK_HEADINGS) if (!String(body).split(/\r?\n/).includes(heading)) throw new Error(`${heading}の見出しが必要です`);
   }
-  if (body !== undefined && task.status === 'done' && !task.deleted_at && !uncheckedDoneExceptions.has(task.id) && /^\s*-\s+\[ \]\s+/m.test(String(body))) {
+  if (body !== undefined && ['review', 'done'].includes(task.status) && !task.deleted_at && !uncheckedDoneExceptions.has(task.id) && /^\s*-\s+\[ \]\s+/m.test(String(body))) {
     throw new Error('未チェックの完了条件があります');
   }
 }
@@ -279,7 +278,7 @@ export async function listTasks(root) {
     try {
       const source = await fs.readFile(path.join(directory, file), 'utf8');
       const parsed = parseMarkdown(source);
-      validateTask(parsed.data, baseline);
+      validateTask(parsed.data, { ...baseline, body: parsed.body, checkHeadings: false });
       results.push({ ...parsed.data, body: parsed.body, revision: taskRevision(source) });
     } catch (error) { results.push({ id: file.replace('.md', ''), invalid: true, error: error.message }); }
   }
@@ -296,7 +295,7 @@ export function sortTasksForBoard(tasks) {
 export async function readTask(root, id) {
   const source = await fs.readFile(taskPath(root, id), 'utf8');
   const parsed = parseMarkdown(source);
-  validateTask(parsed.data, await validationBaseline(root));
+  validateTask(parsed.data, { ...(await validationBaseline(root)), body: parsed.body, checkHeadings: false });
   return { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
 }
 
@@ -331,7 +330,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
   return withTaskWriteLock(file, async () => {
     const source = await fs.readFile(file, 'utf8');
     const parsed = parseMarkdown(source);
-    validateTask(parsed.data, await validationBaseline(root));
+    validateTask(parsed.data, { ...(await validationBaseline(root)), body: parsed.body, checkHeadings: false });
     const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
     if (expectedRevision !== existing.revision) throw taskConflict(existing);
     if (existing.deleted_at) throw new Error('削除済みTaskは変更できません');
@@ -345,20 +344,21 @@ export async function updateTask(root, id, changes, expectedRevision) {
     const body = 'body' in changes ? String(changes.body ?? '') : existing.body;
     const contentChanged = body !== existing.body || allowed.some((key) => key !== 'status' && String(data[key] ?? '') !== String(existing[key] ?? ''));
     if (data.status === 'done' && existing.status !== 'done') {
-      if (!existing.accepted_by || !existing.actual_completed_at) throw new Error('人間の受入を先に別操作で記録してください');
+      if (existing.status !== 'review') throw new Error('doneへの変更はreview状態のTaskにだけ実行できます');
       if (contentChanged) throw new Error('受入後にTaskを変更した場合は再受入が必要です');
-      data.completed_at = japanDate(existing.actual_completed_at);
+      data.actual_completed_at = new Date().toISOString();
+      data.completed_at = japanDate(data.actual_completed_at);
     }
-    if (data.status === 'done' && existing.status === 'done' && existing.accepted_by && contentChanged) throw new Error('完了済みTaskの変更には再受入が必要です');
+    if (data.status === 'done' && existing.status === 'done' && contentChanged) throw new Error('完了済みTaskの変更にはreviewへ戻してから再確認が必要です');
     if (data.status !== 'done') data.completed_at = '';
     if (existing.status === 'done' && data.status !== 'done') {
       data.accepted_by = '';
       data.actual_completed_at = '';
-    } else if (data.status !== 'done' && existing.accepted_by && contentChanged) {
+    } else if (data.status !== 'done' && (existing.accepted_by || existing.actual_completed_at) && contentChanged) {
       data.accepted_by = '';
       data.actual_completed_at = '';
     }
-    validateTask(data, { ...(await validationBaseline(root)), ...(data.status === 'done' ? { body, checkHeadings: false } : {}) });
+    validateTask(data, { ...(await validationBaseline(root)), body, checkHeadings: false });
     // 担当者を変更するときだけマスタと照合する。
     if (data.owner !== existing.owner && !(await requireOwners(root)).includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
     const contents = serializeMarkdown(data, body);
@@ -373,7 +373,7 @@ export async function deleteTask(root, id, expectedRevision) {
   return withTaskWriteLock(file, async () => {
     const source = await fs.readFile(file, 'utf8');
     const parsed = parseMarkdown(source);
-    validateTask(parsed.data, await validationBaseline(root));
+    validateTask(parsed.data, { ...(await validationBaseline(root)), body: parsed.body, checkHeadings: false });
     const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
     if (expectedRevision !== existing.revision) throw taskConflict(existing);
     if (existing.deleted_at) throw new Error('このTaskはすでに削除済みです');
@@ -384,25 +384,6 @@ export async function deleteTask(root, id, expectedRevision) {
     const contents = serializeMarkdown(data, parsed.body);
     await writeTaskAtomically(file, contents);
     return { id, deleted_at, revision: taskRevision(contents) };
-  });
-}
-
-export async function acceptTask(root, id, expectedRevision) {
-  if (!expectedRevision) throw new Error('Taskを読み直してから更新してください');
-  const file = taskPath(root, id);
-  return withTaskWriteLock(file, async () => {
-    const source = await fs.readFile(file, 'utf8');
-    const parsed = parseMarkdown(source);
-    validateTask(parsed.data, await validationBaseline(root));
-    const existing = { ...parsed.data, body: parsed.body, revision: taskRevision(source) };
-    if (expectedRevision !== existing.revision) throw taskConflict(existing);
-    if (existing.status !== 'review') throw new Error('受入はreview状態のTaskにだけ記録できます');
-    if (existing.owner === 'unassigned') throw new Error('受入前にTaskのownerを決めてください');
-    const data = { ...parsed.data, accepted_by: existing.owner, actual_completed_at: new Date().toISOString() };
-    validateTask(data, await validationBaseline(root));
-    const contents = serializeMarkdown(data, parsed.body);
-    await writeTaskAtomically(file, contents);
-    return { ...data, body: parsed.body, revision: taskRevision(contents) };
   });
 }
 
