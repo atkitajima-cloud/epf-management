@@ -60,6 +60,7 @@ test('同期証跡と人間確認を保存し、対象内容の変更で無効�
   await updateCurrent(root, 'EPF-0001', { human_checked: 'true' });
   task = await readTask(root, 'EPF-0001');
   assert.equal(task.human_checked, 'true');
+  assert.equal(task.human_checked_target, 'review');
   assert.equal(task.human_checked_fingerprint, taskSyncFingerprint(task, task.body));
   await updateCurrent(root, 'EPF-0001', { title: '変更後' });
   task = await readTask(root, 'EPF-0001');
@@ -80,8 +81,14 @@ test('doingへの同期証跡と人間確認overrideを保存できる', async (
   await updateCurrent(root, 'EPF-0001', { human_checked: 'true' });
   task = await readTask(root, 'EPF-0001');
   assert.equal(task.human_checked, 'true');
+  assert.equal(task.human_checked_target, 'doing');
   assert.equal(hasValidTransitionEvidence(task, task.body), true);
   assert.throws(() => validateTask({ ...task, sync_target: 'ready' }), /sync_target/);
+  assert.throws(() => validateTask({ ...task, human_checked_target: 'ready' }), /human_checked_target/);
+  const legacy = { ...task };
+  delete legacy.human_checked_target;
+  validateTask(legacy);
+  assert.equal(hasValidTransitionEvidence(legacy, legacy.body), false);
 });
 
 test('Front Matterと本文を往復できる', () => {
@@ -135,6 +142,13 @@ test('未完了Taskを論理削除してdone列に残し、削除済みTaskは�
   assert.equal((await listTasks(root)).some((task) => task.id === 'EPF-0001'), true);
   await assert.rejects(deleteTask(root, 'EPF-0001', saved.revision), /すでに削除済み/);
   await assert.rejects(updateTask(root, 'EPF-0001', { title: '変更' }, saved.revision), /削除済みTaskは変更できません/);
+});
+
+test('activeなExecPlanを持つTaskの論理削除を拒否する', async (context) => {
+  const root = await makeRoot(context);
+  await updateCurrent(root, 'EPF-0001', { exec_plan: 'epf-project/docs/exec-plans/active/EP-PJ-0048-01.md' });
+  const current = await readTask(root, 'EPF-0001');
+  await assert.rejects(deleteTask(root, 'EPF-0001', current.revision), /activeなExecPlan/);
 });
 
 test('Task MarkdownだけをVS Code URLへ変換できる', () => {
@@ -231,6 +245,8 @@ test('画面からのTask作成は不正な入力を補完せず、ファイル�
     { ...valid, title: '' },
     { ...valid, owner: '' },
     { ...valid, status: 'unknown' },
+    { ...valid, status: 'doing' },
+    { ...valid, status: 'review' },
     { ...valid, priority: 'urgent' },
     { ...valid, target_repo: 'unknown' },
     { ...valid, start: '2026/09/01' },

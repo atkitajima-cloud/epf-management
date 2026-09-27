@@ -1,3 +1,0 @@
-interface:
-  display_name: "TaskとExecPlanの同期"
-  short_description: "EPF TaskとExecPlanの状態・記録を同期"

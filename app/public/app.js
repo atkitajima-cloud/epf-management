@@ -179,7 +179,7 @@ async function openTask(id) {
       taskForm.elements[field].value = task[field] || '';
       taskForm.elements[field].disabled = Boolean(task.deleted_at);
     }
-    taskForm.elements.human_checked.checked = task.human_checked === 'true';
+    taskForm.elements.human_checked.checked = false;
     taskForm.elements.human_checked.disabled = Boolean(task.deleted_at);
     document.querySelector('#saveStatus').textContent = '';
     document.querySelector('#deleteTaskButton').hidden = task.status === 'done' || Boolean(task.deleted_at);
@@ -208,7 +208,7 @@ taskForm.addEventListener('submit', async (event) => {
 });
 const createDialog = document.querySelector('#createDialog');
 const createForm = document.querySelector('#createForm');
-createForm.elements.status.innerHTML = statuses.filter((status) => status.id !== 'done')
+createForm.elements.status.innerHTML = statuses.filter((status) => ['backlog', 'ready'].includes(status.id))
   .map((status) => `<option value="${status.id}">${status.label}</option>`).join('');
 
 document.querySelector('#deleteTaskButton').addEventListener('click', async () => {

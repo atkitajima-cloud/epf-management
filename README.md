@@ -105,19 +105,19 @@ Kanbanの5つの列は、次の意味で使います。画面でも、各列の�
 | Review | 作業は終わり、完了条件を満たしているかの確認（レビュー・検証）を待っている。 |
 | Done | 完了条件をすべて満たし、確認が済んだ。 |
 
-Readyにする条件はアプリでは確認しません。Doneへの変更には、人間受入の事前記録が必要です。
+Readyにする条件はアプリでは確認しません。Doneへの変更はReview状態のTaskにだけ実行できます。
 
 Taskの必須Front Matterは `id`, `title`, `status`, `owner`, `priority`, `target_repo` です。`target_repo` は `epf-project`, `epf-management`, `epf-backend`, `epf-frontend`, `common` のいずれかです。`requirement`（REQ-0000形式）は任意で、空欄でも構いません。statusは `backlog`, `ready`, `doing`, `review`, `done` のいずれかです。`done`には`completed_at`（YYYY-MM-DD）、`accepted_by`、`actual_completed_at`が必要です。`actual_started_at`と`actual_completed_at`はタイムゾーン付きISO 8601形式で記録します。ガント用の任意項目は `start`（開始予定日）、`due`（期限）、`depends_on`（先行Task IDをカンマ区切り）です。進捗率は本文の完了条件のチェックボックスから算出します。
 
 新しいTask IDは、日本時間の年月日・時分秒・ミリ秒3桁をハイフンで区切ります（例: `EPF-20260925-120405-006`）。既存のTask IDはそのまま使えます。
 
-人間が成果物を受け入れるときは、TaskをReviewにして詳細画面の「人間受入を記録」を押します。アプリはTaskのownerを`accepted_by`、サーバー時刻を`actual_completed_at`へ保存します。その後、別の操作でDoneへ変更します。受入とDoneの同時送信は拒否されます。現在のアプリには利用者認証がないため、この記録は操作者本人の証明にはなりません。導入前に完了したTaskは`config/task-validation-baseline.json`に限定して経過措置を記録しています。
+人間が状態遷移を確認する場合は、詳細画面で遷移先を選び、「人間確認済み」を明示的にチェックして保存します。確認はその時点のTask内容と遷移先にだけ有効で、編集画面を開くたびに未チェックへ戻ります。Doneへの保存では、サーバーが`actual_completed_at`と`completed_at`を記録します。現在のアプリには利用者認証がないため、人間確認は操作者本人の証明にはなりません。導入前Taskの限定的な例外は`config/task-validation-baseline.json`で管理します。
 
 ## Taskの作成
 
 Taskは画面の「新規Task」から作成し、`tasks/EPF-nnnn.md` として保存します。
 
-ボード見出し右の「新規Task」からフォームで作成します。タイトルと担当者は必須で、不正な入力は補完せずエラーを表示します。Requirementは任意で、指定する場合は `../epf-project/docs/requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文欄には、背景・目的・完了条件・関連の見出しを持つ雛形が最初から入っており、編集して作成できます。空にして作成した場合も、同じ雛形を保存します。ExecPlanは画面では指定せず、必要な場合にFront Matterの`exec_plan`へ規定のパスを記録します。
+ボード見出し右の「新規Task」から`backlog`または`ready`として作成します。`doing`以降は作成後に通常の状態遷移で進めます。タイトルと担当者は必須で、不正な入力は補完せずエラーを表示します。Requirementは任意で、指定する場合は `../epf-project/docs/requirements/` にあるものから選びます。先行Taskは存在するIDだけ指定できます。本文欄には、背景・目的・完了条件・関連の見出しを持つ雛形が最初から入っており、編集して作成できます。空にして作成した場合も、同じ雛形を保存します。ExecPlanは画面では指定せず、必要な場合にFront Matterの`exec_plan`へ規定のパスを記録します。
 
 APIは `POST /api/tasks`（作成。成功は201、入力不正は400）と `GET /api/requirements`（Requirement一覧と本文の雛形）です。
 

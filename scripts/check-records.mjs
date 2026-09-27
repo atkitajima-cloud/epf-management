@@ -138,6 +138,9 @@ for (const name of indexed.get('epf-management')) {
     const before = previous ? parseMarkdown(previous).data : null;
     const transitionsToProtectedStatus = TRANSITION_EVIDENCE_STATUSES.includes(task.data.status)
       && (isNew || (before && before.status !== task.data.status));
+    if (transitionsToProtectedStatus && task.data.status === 'done' && !task.data.deleted_at && before?.status !== 'review') {
+      errors.push(`${id}: doneへの変更はreview状態のTaskにだけ実行できます`);
+    }
     if (transitionsToProtectedStatus && !task.data.deleted_at && !hasValidTransitionEvidence(task.data, task.body)) {
       errors.push(`${id}: ${task.data.status}への変更には有効な同期証跡または人間確認が必要`);
     }

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Task状態遷移ゲート"
+  short_description: "EPF Taskの状態遷移条件・人間確認・関連記録を確認"

@@ -41,7 +41,7 @@ export function taskSyncFingerprint(task, body = '') {
 
 export function hasValidTransitionEvidence(task, body = '') {
   const fingerprint = taskSyncFingerprint(task, body);
-  const humanOverride = task.human_checked === 'true' && task.human_checked_fingerprint === fingerprint;
+  const humanOverride = task.human_checked === 'true' && task.human_checked_target === task.status && task.human_checked_fingerprint === fingerprint;
   const syncEvidence = task.sync_status === 'passed' && task.sync_target === task.status && task.sync_fingerprint === fingerprint && validTimestamp(task.sync_at);
   return humanOverride || syncEvidence;
 }
@@ -186,6 +186,7 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
   if (task.sync_at && !validTimestamp(task.sync_at)) throw new Error('sync_atはタイムゾーン付きISO 8601形式で指定してください');
   for (const field of ['sync_fingerprint', 'human_checked_fingerprint']) if (task[field] && !/^[a-f0-9]{64}$/.test(task[field])) throw new Error(`${field}はSHA-256形式で指定してください`);
   if (task.human_checked && task.human_checked !== 'true') throw new Error('human_checkedはtrueまたは空欄で指定してください');
+  if (task.human_checked_target && !TRANSITION_EVIDENCE_STATUSES.includes(task.human_checked_target)) throw new Error('human_checked_targetはdoing、review、doneのいずれかで指定してください');
   if (task.human_checked_at && !validTimestamp(task.human_checked_at)) throw new Error('human_checked_atはタイムゾーン付きISO 8601形式で指定してください');
   for (const field of ['start', 'due']) {
     if (task[field] && !/^\d{4}-\d{2}-\d{2}$/.test(task[field])) throw new Error(`${field}はYYYY-MM-DD形式で指定してください`);
@@ -374,6 +375,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
     }
     if (contentChanged || !humanRequested) {
       data.human_checked = '';
+      data.human_checked_target = '';
       data.human_checked_at = '';
       data.human_checked_fingerprint = '';
     }
@@ -387,6 +389,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
     }
     if (humanRequested) {
       data.human_checked = 'true';
+      data.human_checked_target = data.status;
       data.human_checked_at = new Date().toISOString();
       data.human_checked_fingerprint = fingerprint;
     }
@@ -425,6 +428,7 @@ export async function deleteTask(root, id, expectedRevision) {
     if (expectedRevision !== existing.revision) throw taskConflict(existing);
     if (existing.deleted_at) throw new Error('このTaskはすでに削除済みです');
     if (existing.status === 'done') throw new Error('完了済みTaskは削除できません。必要なら完了前の状態へ戻してください');
+    if (String(existing.exec_plan || '').includes('/docs/exec-plans/active/')) throw new Error('activeなExecPlanがあるTaskは削除できません。先に計画を整理してください');
     const deleted_at = new Date().toISOString();
     const data = { ...parsed.data, status: 'done', completed_at: japanDate(deleted_at), deleted_at };
     validateTask(data, { ...(await validationBaseline(root)), body: parsed.body, checkHeadings: false });
@@ -484,7 +488,7 @@ export async function createTask(root, input, { clock = () => new Date() } = {})
     completed_at: '',
     start: text(input.start), due: text(input.due), depends_on: text(input.depends_on), requirement, exec_plan: text(input.exec_plan)
   };
-  if (data.status === 'done') throw new Error('新規Taskはdoneで作成できません。作成後に人間受入を記録してください');
+  if (!['backlog', 'ready'].includes(data.status)) throw new Error('新規Taskはbacklogまたはreadyで作成してください');
   validateTask({ id: 'EPF-0000', ...data });
   const owners = await requireOwners(root);
   if (!owners.includes(data.owner)) throw new Error(ownerNotFoundMessage(data.owner));
