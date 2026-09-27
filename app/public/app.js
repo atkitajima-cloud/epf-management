@@ -1,4 +1,4 @@
-import { orderTasksForKanban } from './kanban-order.js';
+import { formatCompletionTimestamp, orderTasksForKanban } from './kanban-order.js';
 
 // hintは列の見出しの下に常に表示する短い説明、descriptionはマウスを重ねたときに表示する定義。README.mdの表と合わせる。
 const statuses = [
@@ -97,7 +97,7 @@ function renderCard(task) {
   const deletedBadge = task.deleted_at ? '<span class="priority low">削除済み</span>' : '';
   const completedLabel = task.deleted_at
     ? `削除 ${task.deleted_at.slice(5, 10)}`
-    : `完了 ${task.completed_at?.slice(5) || '日付不明'}`;
+    : `完了 ${formatCompletionTimestamp(task)}`;
   return `
     <article class="task-card${task.deleted_at ? ' deleted' : ''}" draggable="${task.deleted_at ? 'false' : 'true'}" tabindex="0" data-id="${task.id}" aria-label="${escapeHtml(task.title)}">
       <div class="card-top"><span class="task-id">${task.id}</span><span class="card-badges">${repositoryBadge(task.target_repo)}${deletedBadge}<span class="priority ${task.priority}">${task.priority}</span></span></div>

@@ -309,8 +309,11 @@ export async function listTasks(root) {
 
 export function sortTasksForBoard(tasks) {
   const active = tasks.filter((task) => task.status !== 'done');
+  const completedAt = (task) => Date.parse(task.actual_completed_at || '')
+    || Date.parse(`${task.completed_at || ''}T00:00:00Z`)
+    || Number.NEGATIVE_INFINITY;
   const completed = tasks.filter((task) => task.status === 'done').sort((a, b) =>
-    (b.completed_at || '').localeCompare(a.completed_at || '') || b.id.localeCompare(a.id));
+    completedAt(b) - completedAt(a) || b.id.localeCompare(a.id));
   return [...active, ...completed];
 }
 

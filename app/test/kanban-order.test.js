@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { orderTasksForKanban } from '../public/kanban-order.js';
+import { formatCompletionTimestamp, orderTasksForKanban } from '../public/kanban-order.js';
 
 test('未完了Taskを依存順、完了Taskを完了日降順に並べる', () => {
   const result = orderTasksForKanban([
