@@ -35,7 +35,7 @@ function configSource(repo, name) {
 }
 
 const taskBaseline = JSON.parse(configSource('epf-management', 'config/task-validation-baseline.json'));
-const { hasValidTransitionEvidence, parseMarkdown, validateTask } = await import(pathToFileURL(path.join(workspace, 'epf-management', 'app', 'lib', 'markdown.js')).href);
+const { TRANSITION_EVIDENCE_STATUSES, hasValidTransitionEvidence, parseMarkdown, validateTask } = await import(pathToFileURL(path.join(workspace, 'epf-management', 'app', 'lib', 'markdown.js')).href);
 const legacyDone = new Set(taskBaseline.legacyDoneTaskIds);
 const uncheckedExceptions = new Set(taskBaseline.uncheckedDoneExceptionIds);
 const missingHeadingExceptions = new Set(taskBaseline.missingHeadingExceptionIds || []);
@@ -136,7 +136,7 @@ for (const name of indexed.get('epf-management')) {
     }
     const previous = staged && currentRepo === 'epf-management' && stagedPaths.has(name) ? previousTask('epf-management', name) : null;
     const before = previous ? parseMarkdown(previous).data : null;
-    const transitionsToProtectedStatus = ['review', 'done'].includes(task.data.status)
+    const transitionsToProtectedStatus = TRANSITION_EVIDENCE_STATUSES.includes(task.data.status)
       && (isNew || (before && before.status !== task.data.status));
     if (transitionsToProtectedStatus && !task.data.deleted_at && !hasValidTransitionEvidence(task.data, task.body)) {
       errors.push(`${id}: ${task.data.status}への変更には有効な同期証跡または人間確認が必要`);

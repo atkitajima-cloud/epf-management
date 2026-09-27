@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export const STATUSES = ['backlog', 'ready', 'doing', 'review', 'done'];
+export const TRANSITION_EVIDENCE_STATUSES = ['doing', 'review', 'done'];
 export const PRIORITIES = ['low', 'medium', 'high'];
 // 保存値・画面表示・バッジ色の正本。画面側に値ごとの別マッピングを置かない。
 export const TARGET_REPOSITORY_OPTIONS = Object.freeze([
@@ -181,7 +182,7 @@ export function validateTask(task, { legacyDone = new Set(), uncheckedDoneExcept
     }
   }
   if (task.sync_status && task.sync_status !== 'passed') throw new Error('sync_statusはpassedまたは空欄で指定してください');
-  if (task.sync_target && !['review', 'done'].includes(task.sync_target)) throw new Error('sync_targetはreviewまたはdoneで指定してください');
+  if (task.sync_target && !TRANSITION_EVIDENCE_STATUSES.includes(task.sync_target)) throw new Error('sync_targetはdoing、review、doneのいずれかで指定してください');
   if (task.sync_at && !validTimestamp(task.sync_at)) throw new Error('sync_atはタイムゾーン付きISO 8601形式で指定してください');
   for (const field of ['sync_fingerprint', 'human_checked_fingerprint']) if (task[field] && !/^[a-f0-9]{64}$/.test(task[field])) throw new Error(`${field}はSHA-256形式で指定してください`);
   if (task.human_checked && task.human_checked !== 'true') throw new Error('human_checkedはtrueまたは空欄で指定してください');
@@ -378,7 +379,7 @@ export async function updateTask(root, id, changes, expectedRevision) {
     }
     const fingerprint = taskSyncFingerprint(data, body);
     if (syncRequested) {
-      if (!['review', 'done'].includes(changes.sync_target ?? data.sync_target)) throw new Error('同期証跡にはreviewまたはdoneの遷移先が必要です');
+      if (!TRANSITION_EVIDENCE_STATUSES.includes(changes.sync_target ?? data.sync_target)) throw new Error('同期証跡にはdoing、review、doneの遷移先が必要です');
       data.sync_status = 'passed';
       data.sync_target = String(changes.sync_target ?? data.sync_target);
       data.sync_at = new Date().toISOString();

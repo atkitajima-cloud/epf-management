@@ -68,6 +68,22 @@ test('同期証跡と人間確認を保存し、対象内容の変更で無効�
   assert.equal(hasValidTransitionEvidence(task, task.body), false);
 });
 
+test('doingへの同期証跡と人間確認overrideを保存できる', async (context) => {
+  const root = await makeRoot(context);
+  await updateCurrent(root, 'EPF-0001', { sync_status: 'passed', sync_target: 'doing' });
+  await updateCurrent(root, 'EPF-0001', { status: 'doing' });
+  let task = await readTask(root, 'EPF-0001');
+  assert.equal(task.sync_target, 'doing');
+  assert.equal(hasValidTransitionEvidence(task, task.body), true);
+
+  await updateCurrent(root, 'EPF-0001', { title: '人間確認用に変更' });
+  await updateCurrent(root, 'EPF-0001', { human_checked: 'true' });
+  task = await readTask(root, 'EPF-0001');
+  assert.equal(task.human_checked, 'true');
+  assert.equal(hasValidTransitionEvidence(task, task.body), true);
+  assert.throws(() => validateTask({ ...task, sync_target: 'ready' }), /sync_target/);
+});
+
 test('Front Matterと本文を往復できる', () => {
   const source = serializeMarkdown(sample, '# 完了条件\n\n- [ ] test');
   const parsed = parseMarkdown(source);
