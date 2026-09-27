@@ -59,4 +59,4 @@
 ## 規約検査
 
 - 作業開始時に `git config core.hooksPath .githooks` を設定する。commit前に `scripts/check-records.mjs` が4repoの記録を検査する。手動確認は `node scripts/check-records.mjs` で行う。
-- このローカル検査を迂回できる経路のサーバー側対策はEPF-0039で扱う。
+- 記録検査はこのローカル検査だけで行い、PR時のCIには組み込まない。迂回・設定漏れの扱いは[品質ゲート](../epf-project/docs/design-docs/01-開発の進め方/DD-01-06-品質ゲート.md)の「限界」を参照する。
