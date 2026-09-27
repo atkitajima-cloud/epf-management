@@ -14,6 +14,7 @@
 - ガントチャートも `tasks/*.md` から生成する派生Viewであり、表示用データを正本として保存しない。
 - ExecPlanに関連するTaskは、本文の「関連」から対象repoのExecPlanへリンクする。Taskを `review` または `done` にするときは、実施内容と検証結果がExecPlanにも記録されていることを確認する。
 - TaskとExecPlanの同期ルールは `../epf-project/docs/design-docs/01-開発の進め方/DD-01-01-TaskとExecPlanの同期ルール.md` を参照する。
+- Taskを着手・`review`・`done`へ進める、またはTaskとExecPlanを同期する場合は、`.agents/skills/epf-task-execplan-sync/SKILL.md` を実行する。
 - 設計・判断Taskを完了する前に、後続実装Taskと依存関係、または実装不要理由を記録する。
 - 再利用するAI作業のSkill運用は `../epf-project/docs/design-docs/01-開発の進め方/DD-01-03-AI駆動開発の共通Skill運用方針.md` を参照する。
 - AI作業で検出された不備・記録漏れ・再発防止事項は、`../epf-project/docs/design-docs/01-開発の進め方/DD-01-04-AI作業不備の記録と改善ループ.md` と `../epf-project/docs/references/ai-work-defect-log.md` に従って記録・追跡する。
