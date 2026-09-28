@@ -31,6 +31,7 @@
 
 ## 変更の管理
 
+- branch作成を含むGit操作の前に、対象repoの運用を `../epf-project/docs/design-docs/01-開発の進め方/DD-01-02-開発フローとブランチ運用.md` で確認する。
 - 大きな変更の前に、対象repoの `docs/exec-plans/` にExecPlanを作成または更新する。複数repoにまたがるExecPlanは `epf-project` に置く。
 - 既存の `plans/PLAN-*.md` は移動・改名せず、Taskの旧`plan`欄からの参照を維持する。新しいExecPlanはTask本文からリンクする。
 - Taskの追加、編集、状態変更、日程・担当・依存関係の変更は、`tasks/*.md` とGit差分で追跡する。これらのTaskデータ変更だけを理由にExecPlanを作成する必要はない。
